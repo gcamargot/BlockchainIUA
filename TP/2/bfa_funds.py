@@ -1,9 +1,14 @@
-#!/usr/bin/env python3
-
 import argparse
+import web3
+from web3 import Web3
 from sys import exit, stderr
+from web3.middleware import geth_poa_middleware
 
 DEFAULT_WEB3_URI = "~/blockchain-iua/devnet/node/geth.ipc"
+
+# Generamos el provider por IPC
+web3_instance = Web3(Web3.IPCProvider(DEFAULT_WEB3_URI))
+web3_instance.middleware_onion.inject(geth_poa_middleware, layer=0)
 
 def balance(account, unit):
     """Imprime el balance de una cuenta
@@ -11,7 +16,10 @@ def balance(account, unit):
     :param account: La dirección de la cuenta
     :param unit: Las unidades en las que se desea el resultado. (wei, Kwei, Mwei, Gwei, microether, milliether, ether)
     """
-    print(f"balance({account},{unit}): No implementado")
+    balance_wei = web3_instance.eth.get_balance(account)
+    balance_eth = web3_instance.from_wei(balance_wei, unit)
+    
+    print(f"Balance de la cuenta {account}: {balance_eth} {unit.upper()}")
 
 def transfer(src, dst, amount, unit):
     """Transfiere ether de una cuenta a otra.
@@ -20,18 +28,31 @@ def transfer(src, dst, amount, unit):
     :param dst: La dirección de la cuenta de destino.
     :param amount: Monto que se desea transferir.
     :param unit: Unidades en las que está expresado el monto.
-    Si la transacción es exitosa, imprime "Transferencia exitosa".
-    Si la transacción falla, termina el programa con error e indica la causa.
     """
-    print(f"transfer({src},{dst},{amount},{unit}): No implementado")
+    # Convierte el monto a wei
+    amount_wei = web3_instance.to_wei(amount, unit)
+    
+    transaction = {
+        'from': src,
+        'to': dst,
+        'value': amount_wei,
+    }
+    
+    try:
+        tx_hash = web3_instance.eth.send_transaction(transaction)
+        print(f"Transferencia exitosa. Hash de transacción: {tx_hash.hex()}")
+        return tx_hash
+    except Exception as e:
+        print(f"Error en la transacción: {e}")
+        exit(1)
 
 def accounts():
     """Lista las cuentas asociadas con un nodo"""
-    print("accounts(): No implementado")
+    accounts = web3_instance.eth.accounts
+    print(accounts)       
 
 def address(x):
     """Verifica si su argumento tiene forma de dirección ethereum válida"""
-    
     if x[:2] == '0x' or x[:2] == '0X':
         try:
             b = bytes.fromhex(x[2:])
@@ -39,35 +60,21 @@ def address(x):
                 return x
         except ValueError:
             pass
-    raise argparse.ArgumentTypeError(f"Invalid address: '{x}'")                                                                                                                                               
+    raise argparse.ArgumentTypeError(f"Invalid address: '{x}'")
+  
+def get_latest_block():
+  """Obtiene el último bloque de la cadena"""
+  block = web3_instance.eth.get_block('latest')
+  print("===== Último bloque =====")
+  print(block)
+my_account = "0xec5904d1823ff545df1bd565cc407afc3c386532"
+ETHER_STRING = "ether"
 
+balance(my_account, ETHER_STRING)
 
+print("Transferencia de 1 ether a la cuenta 0xE73603DAEb818b1dC3E71F1e00d6a77F7d48e6a4")
+balance("0xE73603DAEb818b1dC3E71F1e00d6a77F7d48e6a4", ETHER_STRING)
+# transfer(my_account, "0xE73603DAEb818b1dC3E71F1e00d6a77F7d48e6a4", 1, ETHER_STRING)
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description=
-        f"""Maneja los fondos de una cuenta en una red ethereum.
-        Permite consultar el balance y realizar transferencias. Por defecto, intenta conectarse mediante '{DEFAULT_WEB3_URI}'""")
-    parser.add_argument("--uri", help=f"URI para la conexión con geth",default=DEFAULT_WEB3_URI)
-    subparsers = parser.add_subparsers(title="command", dest="command")
-    subparsers.required=True
-    parser_balance = subparsers.add_parser("balance", help="Obtiene el balance de una cuenta")
-    parser_balance.add_argument("--unit", help="Unidades en las que está expresado el monto", choices=['wei', 'Kwei', 'Mwei', 'Gwei', 'microether', 'milliether','ether'], default='wei')
-    parser_balance.add_argument("--account", "-a", help="Cuenta de la que se quiere obtener el balance", type=address, required=True)
-    parser_transfer = subparsers.add_parser("transfer", help="Transfiere fondos de una cuenta a otra")
-    parser_transfer.add_argument("--from", help="Cuenta de origen", type=address, required=True, dest='src')
-    parser_transfer.add_argument("--to", help="Cuenta de destino", type=address, required=True, dest='dst')
-    parser_transfer.add_argument("--amount", help="Monto a transferir", type=int, required=True)
-    parser_transfer.add_argument("--unit", help="Unidades en las que está expresado el monto", choices=['wei', 'Kwei', 'Mwei', 'Gwei', 'microether', 'milliether','ether'], default='wei')
-    parser_accounts = subparsers.add_parser("accounts", help="Lista las cuentas de un nodo")
-    args = parser.parse_args()
-    # La URI elegida por el usuario está disponible como args.uri
-    # Lo que sigue probablemente debería estar encerrado en un bloque try: ... except:
-    if args.command == "balance":
-        balance(args.account, args.unit)
-    elif args.command == "transfer":
-        transfer(args.src, args.dst, args.amount, args.unit)
-    elif args.command == "accounts":
-        accounts()
-    else:
-        print(f"Comando desconocido: {args.command}", file=stderr)
-        exit(1)
+print("======== Cuentas registradas en el nodo ========")
+accounts()
