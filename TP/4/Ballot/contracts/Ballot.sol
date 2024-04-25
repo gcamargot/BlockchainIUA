@@ -183,18 +183,18 @@ contract Ballot {
                 winningProposalCount += 1;
             }
         }
-        uint[] memory winners = new uint[](winningProposalCount);
+        uint[] memory winningProposalsArray = new uint[](winningProposalCount);
         uint index = 0;
         for (uint p = 0; p < proposals.length; p++) {
             if (proposals[p].voteCount == winningVoteCount) {
-                winners[index] = p;
+                winningProposalsArray[index] = p;
                 index += 1;
             }
         }
         if (winningVoteCount == 0) {
             return new uint[](0);
         }
-        return winners;
+        return winningProposalsArray;
     }
 
     // Devuelve un array con los nombres de las
@@ -206,13 +206,13 @@ contract Ballot {
     function winners() public view returns (bytes32[] memory winners_) {
         require(ended(), "Voting hasn't ended yet.");
         uint[] memory winningProposals_ = winningProposals();
-        bytes32[] memory winners = new bytes32[](winningProposals_.length);
+        bytes32[] memory winningProposalsArray = new bytes32[](winningProposals_.length);
         for (uint i = 0; i < winningProposals_.length; i++) {
-            winners[i] = proposals[winningProposals_[i]].name;
+            winningProposalsArray[i] = proposals[winningProposals_[i]].name;
         }
         if (winningProposals_.length == 0) {
             return new bytes32[](0);
         }
-        return winners;
+        return winningProposalsArray;
     }
 }
