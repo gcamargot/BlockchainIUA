@@ -18,11 +18,13 @@ contract Game {
     uint256 public bet;
 
     event GameCreated(address creator, address game);
+    event GameTerminated(address creator, address game);
     event PlayerJoined(address player);
     event PlayerTurn(address nextPlayer);
     event Winner(address winner);
     event Draw(address creator, address challenger);
     event WinningsTransferred(address winner, uint256 amount);
+    event GameStarted(address creator, address challenger);
 
     modifier onlyPlayers() {
         require(
@@ -61,7 +63,7 @@ contract Game {
     }
 
     // Para crear un juego es necesario hacer una apuesta
-    constructor() payable isBet {
+    constructor () payable isBet {
         bet = msg.value;
         players[0] = payable(msg.sender);
         emit GameCreated(msg.sender, address(this));
@@ -99,6 +101,7 @@ contract Game {
         players[1] = payable(msg.sender);
         status = Status.Running;
         emit PlayerJoined(msg.sender);
+        emit PlayerTurn(nextPlayer());
     }
 
     // Función interna que transfiere las ganancias a un jugador.
@@ -142,7 +145,10 @@ contract Game {
     // Termina el contrato
     function kill() public onlyCreator {
         // Este código permite al creador hacer trampa. Corregir
+        require(winnings[1] == 0, "can't kill a game with winnings");
         require(status != Status.Running, "can't kill a running game");
-        selfdestruct(players[0]);
+        emit GameTerminated(players[0], address(this));
+        selfdestruct(payable(players[0]));
+        
     }
 }
