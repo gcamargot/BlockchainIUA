@@ -23,6 +23,7 @@ contract CFPFactory {
     mapping(bytes32 => CallForProposals) private _calls;
     mapping(address => status) private _status;
     address[] private _creators;
+    uint256 public activeCreators;
     mapping(address => bytes32[]) private _createdBy;
     
     constructor() {
@@ -56,8 +57,10 @@ contract CFPFactory {
         require(timestamp > block.timestamp, "El cierre de la convocatoria no puede estar en el pasado");
         CFP cfp = new CFP(callId, timestamp);
         _calls[callId] = CallForProposals(msg.sender, cfp);
+        if (_createdBy[msg.sender].length == 0) {
+            activeCreators += 1;
+        }
         _createdBy[msg.sender].push(callId);
-        _creators.push(msg.sender);
         emit CFPCreated(msg.sender, callId, cfp);
         return cfp;
        
@@ -78,17 +81,20 @@ contract CFPFactory {
         require(_status[creator] == status.Authorized, "No autorizado");
         require(_calls[callId].creator == address(0), "El llamado ya existe");
         require(timestamp > block.timestamp, "El cierre de la convocatoria no puede estar en el pasado");
+        
         CFP cfp = new CFP(callId, timestamp);
         _calls[callId] = CallForProposals(creator, cfp);
+        if (_createdBy[creator].length == 0) {
+            activeCreators += 1;
+        }
         _createdBy[creator].push(callId);
-        _creators.push(creator);
         emit CFPCreated(creator, callId, cfp);
         return cfp;
     }
 
     // Devuelve la cantidad de cuentas que han creado llamados.
     function creatorsCount() public view returns (uint256) {
-        return _creators.length;
+        return activeCreators;
     }
 
     /// Devuelve el identificador del llamado que está en la posición `index` de la lista de llamados creados por `creator`
@@ -150,7 +156,7 @@ contract CFPFactory {
     // En caso contrario revierte con el mensaje "Solo el creador puede hacer esta llamada".
     function getAllPending() public view returns (address[] memory) {
         require(msg.sender == factoryOwner, "Solo el creador puede hacer esta llamada");
-        address[] memory pending = new address[](creatorsCount());
+        address[] memory pending = new address[](pendingCount());
         uint256 j = 0;
         for (uint256 i = 0; i < _creators.length; i++) {
             if (_status[_creators[i]] == status.Pending) {
@@ -159,6 +165,7 @@ contract CFPFactory {
             }
         }
         return pending;
+
     }
 
     // Devuelve la registración pendiente con índice `index`
