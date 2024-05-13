@@ -3,11 +3,6 @@ pragma solidity ^0.8.19;
 
 contract CFP {
     // Evento que se emite cuando alguien registra una propuesta
-    event ProposalRegistered(
-        bytes32 proposal,
-        address sender,
-        uint256 blockNumber
-    );
 
     // Estructura que representa una propuesta
     struct ProposalData {
@@ -16,31 +11,60 @@ contract CFP {
         uint256 timestamp;
     }
 
-    // Devuelve los datos asociados con una propuesta
-    function proposalData(
-        bytes32 proposal
-    ) public view returns (ProposalData memory) {}
+    event ProposalRegistered(
+        bytes32 proposal,
+        address sender,
+        uint256 blockNumber
+    );
 
+    bytes32 private _callId;
+    uint256 private _closingTime;
+    address private _creator;
+
+    mapping(bytes32 => ProposalData) public _proposalData; 
+    bytes32[] public _proposals;
+
+    // Devuelve los datos asociados con una propuesta
+    function proposalData(bytes32 proposal) public view returns (ProposalData memory) {
+        return _proposalData[proposal];
+    }
     // Devuelve la propuesta que está en la posición `index` de la lista de propuestas registradas
-    function proposals(uint index) public view returns (bytes32) {}
+    function proposals(uint index) public view returns (bytes32) {
+        return _proposals[index];
+    }
 
     // Timestamp del cierre de la recepción de propuestas
-    function closingTime() public view returns (uint256) {}
+    function closingTime() public view returns (uint256) {
+        return _closingTime;
+    }
 
     // Identificador de este llamado
-    function callId() public view returns (bytes32) {}
+    function callId() public view returns (bytes32) {
+        return _callId;
+    }
 
     // Creador de este llamado
-    function creator() public view returns (address) {}
+    function creator() public view returns (address) {
+        return _creator;
+    }
 
     /** Construye un llamado con un identificador y un tiempo de cierre.
      *  Si el `timestamp` del bloque actual es mayor o igual al tiempo de cierre especificado,
      *  revierte con el mensaje "El cierre de la convocatoria no puede estar en el pasado".
      */
-    constructor(bytes32 _callId, uint256 _closingTime) {}
+    constructor(bytes32 _cId, uint256 _cTime) {
+        if (block.timestamp >= _cTime) {
+            revert("El cierre de la convocatoria no puede estar en el pasado");
+        }
+        _callId = _cId;
+        _closingTime = _cTime;
+        _creator = msg.sender;
+    }
 
     // Devuelve la cantidad de propuestas presentadas
-    function proposalCount() public view returns (uint256) {}
+    function proposalCount() public view returns (uint256) {
+        return _proposals.length;
+    }
 
     /** Permite registrar una propuesta espec.
      *  Registra al emisor del mensaje como emisor de la propuesta.
@@ -50,7 +74,16 @@ contract CFP {
      *  "La propuesta ya ha sido registrada"
      *  Emite el evento `ProposalRegistered`
      */
-    function registerProposal(bytes32 proposal) public {}
+    function registerProposal(bytes32 proposal) public {
+        require(proposalTimestamp(proposal) == 0, "La propuesta ya ha sido registrada");
+        if (block.timestamp > _closingTime) {
+            revert("Convocatoria cerrada");
+        }
+        ProposalData memory pd = ProposalData(msg.sender, block.number, block.timestamp);
+        _proposalData[proposal] = pd;
+        _proposals.push(proposal);
+        emit ProposalRegistered(proposal, msg.sender, block.number);
+    }
 
     /** Permite registrar una propuesta especificando un emisor.
      *  Sólo puede ser ejecutada por el creador del llamado. Si no es así, revierte
@@ -61,12 +94,21 @@ contract CFP {
      *  "La propuesta ya ha sido registrada"
      *  Emite el evento `ProposalRegistered`
      */
-    function registerProposalFor(bytes32 proposal, address sender) public {}
+    function registerProposalFor(bytes32 proposal, address sender) public {
+        require(msg.sender == _creator, "Solo el creador puede hacer esta llamada");
+        require(proposalTimestamp(proposal) == 0, "La propuesta ya ha sido registrada");
+        ProposalData memory pd = ProposalData(sender, block.number, block.timestamp);
+        _proposalData[proposal] = pd;
+        _proposals.push(proposal);
+        emit ProposalRegistered(proposal, sender, block.number);
+    }
 
     /** Devuelve el timestamp en el que se ha registrado una propuesta.
      *  Si la propuesta no está registrada, devuelve cero.
      */
     function proposalTimestamp(
         bytes32 proposal
-    ) public view returns (uint256) {}
+    ) public view returns (uint256) {
+        return _proposalData[proposal].timestamp;
+    }
 }
