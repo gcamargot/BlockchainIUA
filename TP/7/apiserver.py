@@ -1,30 +1,38 @@
 import argparse
+import re
 import json
 import messages
-import re
+
 
 from web3 import Web3, HTTPProvider
 from eth_account import Account
 from eth_account.messages import encode_defunct
 from datetime import datetime
 from flask import Flask, request, jsonify
-from os import urandom
-from datetime import datetime
 from pytz import timezone
 from flask import make_response
+import argparse
 
 empty = "0x0000000000000000000000000000000000000000"
 
+parser = argparse.ArgumentParser()
+mnemonic_route = "mnemonic.txt"
+parser.add_argument('--mnemonic', help = "Mnemonic file name or route", default=mnemonic_route)
+parser.add_argument('--gport', help = "Ganache port number", default=7545)
+parser.add_argument('--network', help = "Ganache Network ID", default=5777)
+args = parser.parse_args()
+network = str(args.network)
 app = Flask(__name__)
-w3 = Web3(HTTPProvider('http://127.0.0.1:7545'))
+w3 = Web3(HTTPProvider('http://localhost:' + str(args.gport)))
 
-CFPFactory_file = "../6/build/contracts/CFPFactory.json"
-with open(CFPFactory_file) as f:
+fCFPFactory = "../6/build/contracts/CFPFactory.json"
+with open(fCFPFactory) as f:
     cfp_factory = json.load(f)
     cfp_abi = cfp_factory['abi']
-    cfp_address = cfp_factory['networks']['5777']['address']
+    cfp_address = cfp_factory['networks'][network]['address']
     print("CFPFactory address: ", cfp_address)
     cfp_factory_contract = w3.eth.contract(address=cfp_address, abi=cfp_abi)
+
 
 
 
@@ -112,7 +120,7 @@ def register():
     encoder = encode_defunct(contract_address_bytes)
     addressRecovered = w3.eth.account.recover_message(encoder, signature=signature)
     address = w3.to_checksum_address(address.lower())
-    addressRecovered == address
+   
     
     if addressRecovered != address:
         return jsonify({"message": messages.INVALID_SIGNATURE}), 400, {"Content-Type": "application/json"}
@@ -316,19 +324,16 @@ def is_valid_mnemonic(mnemonic):
     
 
 if __name__ == '__main__':
-  mnemonic = "release beach soul flip danger report dove million embody vast net disorder"
-  parser = argparse.ArgumentParser()
-  parser.add_argument('--mnemonic', help = "Seed", default=mnemonic)
-  args = parser.parse_args()
   
-
+  with open(args.mnemonic) as f:
+    mnemonic = f.read()
     
   try :
-    if not is_valid_mnemonic(args.mnemonic):
+    if not is_valid_mnemonic(mnemonic):
       raise Exception("La semilla no es válida")
     Account.enable_unaudited_hdwallet_features()
 
-    owner = Account.from_mnemonic(args.mnemonic, account_path="m/44'/60'/0'/0/0")
+    owner = Account.from_mnemonic(mnemonic, account_path="m/44'/60'/0'/0/0")
     print("Owner address: ", owner.address)
 
     app.run(debug = True)
