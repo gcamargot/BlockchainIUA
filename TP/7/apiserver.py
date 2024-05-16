@@ -13,6 +13,8 @@ from datetime import datetime
 from pytz import timezone
 from flask import make_response
 
+empty = "0x0000000000000000000000000000000000000000"
+
 app = Flask(__name__)
 w3 = Web3(HTTPProvider('http://127.0.0.1:7545'))
 
@@ -71,7 +73,7 @@ def create():
     
     cfp = cfp_factory_contract.functions.calls(call_id).call()
     
-    if (cfp[0] != "0x0000000000000000000000000000000000000000"):
+    if (cfp[0] != empty):
         return jsonify({"message": messages.ALREADY_CREATED}), 403, {"Content-Type": "application/json"}
 
     if w3.eth.get_block("latest").timestamp >= closing_time.timestamp():
@@ -149,7 +151,7 @@ def register_proposal():
     
     cfp = cfp_factory_contract.functions.calls(call_id).call()
 
-    if (cfp[0] == "0x0000000000000000000000000000000000000000"):
+    if (cfp[0] == empty):
         return jsonify({"message": messages.CALLID_NOT_FOUND}), 404
     
     if not is_valid_call_id(proposal):
@@ -205,7 +207,7 @@ def get_call(call_id):
         
         cfp = cfp_factory_contract.functions.calls(call_id).call()
         
-        if (cfp[0] == "0x0000000000000000000000000000000000000000"):
+        if (cfp[0] == empty):
                 return make_response(jsonify({"message": messages.CALLID_NOT_FOUND}), 404)
         
         return make_response(jsonify({
@@ -220,7 +222,7 @@ def closing_time(call_id):
         
         cfp = cfp_factory_contract.functions.calls(call_id).call()
         
-        if (cfp[0] == "0x0000000000000000000000000000000000000000"):
+        if (cfp[0] == empty):
                 return make_response(jsonify({"message": messages.CALLID_NOT_FOUND}), 404)
         
         # Need to access the CFP contract to get more information
@@ -263,7 +265,7 @@ def proposal_data(call_id, proposal):
     
     cfp = cfp_factory_contract.functions.calls(call_id).call()
     
-    if (cfp[0] == "0x0000000000000000000000000000000000000000"):
+    if (cfp[0] == empty):
         return make_response(jsonify({"message": messages.CALLID_NOT_FOUND}), 404)
     
     if (not is_valid_call_id(proposal)):
@@ -280,7 +282,7 @@ def proposal_data(call_id, proposal):
     proposal_data = cfp_contract.functions.proposalData(proposal).call()
 
     # If the proposal does not exist, return a 404
-    if (proposal_data[0] == "0x0000000000000000000000000000000000000000"):
+    if (proposal_data[0] == empty):
         return make_response(jsonify({"message": messages.PROPOSAL_NOT_FOUND}), 404)
     
     closing_time = datetime.fromtimestamp(proposal_data[2], timezone("America/Argentina/Buenos_Aires"))             
@@ -293,7 +295,7 @@ def proposal_data(call_id, proposal):
 
 
 def was_cfp_created(cfp):
-        return cfp == "0x0000000000000000000000000000000000000000"
+        return cfp == empty
 
 def is_valid_mimetype(mimetype):
     return mimetype == "application/json"
@@ -312,24 +314,6 @@ def is_valid_call_id(call_id):
 def is_valid_mnemonic(mnemonic):
     return len(mnemonic.split()) == 12  
     
-def is_valid_signature(signature, hash):
-    """Validates the signature"""
-    r = w3.to_int(hexstr=signature[-130:-64])
-    s = w3.to_int(hexstr=signature[-64:-2])
-    v = w3.to_int(hexstr=signature[-2:])
-    return v == 27 or v == 28 and w3.eth.account.recover_message(encode_defunct(text=hash), signature=signature) != ""
-
-def random_hex(length: int) -> str:
-    """Genera una string hexadecimal aleatoria de la longitud dada."""
-    return f"0x{urandom(length).hex()}"
-
-def random_hash() -> str:
-    """Genera un hash aleatorio."""
-    return random_hex(32)
-  
-def random_address() -> str:
-  """Genera una dirección aleatoria."""
-  return random_hex(20)
 
 if __name__ == '__main__':
   mnemonic = "release beach soul flip danger report dove million embody vast net disorder"
