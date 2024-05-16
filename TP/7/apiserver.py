@@ -20,12 +20,13 @@ mnemonic_route = "mnemonic.txt"
 parser.add_argument('--mnemonic', help = "Mnemonic file name or route", default=mnemonic_route)
 parser.add_argument('--gport', help = "Ganache port number", default=7545)
 parser.add_argument('--network', help = "Ganache Network ID", default=5777)
+parser.add_argument('--build', help = "Route to the folder that contains build folder", default="../6")
 args = parser.parse_args()
 network = str(args.network)
 app = Flask(__name__)
 w3 = Web3(HTTPProvider('http://localhost:' + str(args.gport)))
 
-fCFPFactory = "../6/build/contracts/CFPFactory.json"
+fCFPFactory = args.build + "/build/contracts/CFPFactory.json"
 with open(fCFPFactory) as f:
     cfp_factory = json.load(f)
     cfp_abi = cfp_factory['abi']
@@ -165,7 +166,7 @@ def register_proposal():
     if not is_valid_call_id(proposal):
         return jsonify({"message": messages.INVALID_PROPOSAL}), 400
     
-    with open("../6/build/contracts/CFP.json") as f:
+    with open(args.build + "/build/contracts/CFP.json") as f:
         cfp_data = json.load(f)
         abi = cfp_data['abi']
         
@@ -234,7 +235,7 @@ def closing_time(call_id):
                 return make_response(jsonify({"message": messages.CALLID_NOT_FOUND}), 404)
         
         # Need to access the CFP contract to get more information
-        with open("../6/build/contracts/CFP.json") as f:
+        with open(args.build + "/build/contracts/CFP.json") as f:
                 cfp_data = json.load(f)
                 abi = cfp_data['abi']
                 
@@ -280,7 +281,7 @@ def proposal_data(call_id, proposal):
         return make_response(jsonify({"message": messages.INVALID_PROPOSAL}), 400)
     
     # Connect to the CFP contract to retrieve the data
-    with open("../6/build/contracts/CFP.json") as f:
+    with open(args.build + "/build/contracts/CFP.json") as f:
         cfp_data = json.load(f)
         abi = cfp_data['abi']
         
