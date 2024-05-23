@@ -2,8 +2,6 @@ import argparse
 import re
 import json
 import messages
-
-
 from web3 import Web3, HTTPProvider
 from eth_account import Account
 from eth_account.messages import encode_defunct
@@ -12,9 +10,9 @@ from flask import Flask, request, jsonify
 from pytz import timezone
 from flask import make_response
 import argparse
+from flask_cors import CORS, cross_origin
 
 empty = "0x0000000000000000000000000000000000000000"
-
 parser = argparse.ArgumentParser()
 mnemonic_route = "mnemonic.txt"
 parser.add_argument('--mnemonic', help = "Mnemonic file name or route", default=mnemonic_route)
@@ -24,8 +22,9 @@ parser.add_argument('--build', help = "Route to the folder that contains build f
 args = parser.parse_args()
 network = str(args.network)
 app = Flask(__name__)
+cors = CORS(app)
+app.config['CORS_HEADERS'] = 'Content-Type'
 w3 = Web3(HTTPProvider('http://localhost:' + str(args.gport)))
-
 fCFPFactory = args.build + "/build/contracts/CFPFactory.json"
 with open(fCFPFactory) as f:
     cfp_factory = json.load(f)
@@ -33,9 +32,6 @@ with open(fCFPFactory) as f:
     cfp_address = cfp_factory['networks'][network]['address']
     print("CFPFactory address: ", cfp_address)
     cfp_factory_contract = w3.eth.contract(address=cfp_address, abi=cfp_abi)
-
-
-
 
 @app.post('/create')
 def create():
@@ -138,6 +134,7 @@ def register():
     return jsonify(message = messages.OK), 200, {"Content-Type": "application/json"}
     
 @app.post('/register-proposal')
+@cross_origin()
 def register_proposal():
     """
     Register a proposal for a call.
@@ -181,9 +178,9 @@ def register_proposal():
         cfp_contract.functions.registerProposal(proposal).transact({"from": owner.address})
     except Exception as e:
         return jsonify({"message": str(e)}), 500
-    
+    print("Proposal registered" + proposal + " for call " + call_id)
     return jsonify({"message": messages.OK}), 201
-    
+
 @app.get('/authorized/<address>')
 def authorized(address):
         if not is_valid_address(address):
@@ -247,6 +244,7 @@ def closing_time(call_id):
         return make_response(jsonify({"closingTime": closing_time.isoformat()}), 200)
         
 @app.get("/contract-address")
+@cross_origin()
 def contract_address():
         return make_response(jsonify({"address": cfp_address}), 200)
         
@@ -276,7 +274,7 @@ def proposal_data(call_id, proposal):
     
     if (cfp[0] == empty):
         return make_response(jsonify({"message": messages.CALLID_NOT_FOUND}), 404)
-    
+    print(proposal)
     if (not is_valid_call_id(proposal)):
         return make_response(jsonify({"message": messages.INVALID_PROPOSAL}), 400)
     
@@ -301,7 +299,40 @@ def proposal_data(call_id, proposal):
         "blockNumber": proposal_data[1],
     }), 200)
 
+@app.get('/pending')
+@cross_origin()
+def pending():
+    """
+    Retrieves a list of pending calls for proposals.
 
+    Returns:
+        A JSON response containing the call IDs of all pending calls for proposals.
+    """
+    try:
+        pending = cfp_factory_contract.functions.getAllPending().call()
+        return make_response(jsonify({"calls": pending}), 200)
+    except Exception as e:
+        return make_response(jsonify({"message": str(e)}), 500)
+
+@app.get('/proposals')
+@cross_origin()
+def proposals():
+    """
+    Retrieves a list of all proposals.
+
+    Returns:
+        A JSON response containing the call IDs of all proposals.
+    """
+    try:
+        proposals = cfp_factory_contract.functions.getCallsList().call()
+        proposals = [p.hex() for p in proposals]  # Convert bytes to hex
+        return make_response(jsonify({"proposals": proposals}), 200)
+    except Exception as e:
+        return make_response(jsonify({"message": str(e)}), 500)    
+
+
+
+    
 
 def was_cfp_created(cfp):
         return cfp == empty
@@ -323,7 +354,6 @@ def is_valid_call_id(call_id):
 def is_valid_mnemonic(mnemonic):
     return len(mnemonic.split()) == 12  
     
-
 if __name__ == '__main__':
   
   with open(args.mnemonic) as f:
