@@ -6,6 +6,12 @@ import { Button, Modal } from "react-bootstrap";
 import * as crypto from "crypto-js";
 import AlertCFP from "./components/Alert";
 
+const apiUrl = "http://127.0.0.1:5000";
+const registerEndPoint = "/register-proposal";
+const contractAddressEndPoint = "/contract-address";
+const contractOwnerEndPoint = "/contract-owner";
+const getProposalsEndpPoint = "/proposals";
+const checkProposalEndPoint = "/proposal-data";
 
 function App() {
   const [contractAddress, setContractAddress] = useState("");
@@ -22,14 +28,13 @@ function App() {
 
 
   const handleCallClick = (call: any) => {
-    console.log("Proposal clicked:", call);
     setSelectedCalllId(call);
     setModalVisible(true);
   };
 
   useEffect(() => {
     axios
-      .get("http://127.0.0.1:5000/contract-address", {
+      .get(apiUrl + contractAddressEndPoint, {
         headers: { "Access-Control-Allow-Origin": "*" },
       })
       .then((response) => {
@@ -39,7 +44,7 @@ function App() {
         console.error("Error fetching contract address:", error);
       });
     axios
-      .get("http://127.0.0.1:5000/contract-owner", {
+      .get(apiUrl + contractOwnerEndPoint, {
         headers: { "Access-Control-Allow-Origin": "*" },
       })
       .then((response) => {
@@ -49,7 +54,7 @@ function App() {
         console.error("Error fetching owner:", error);
       });
     axios
-      .get("http://127.0.0.1:5000/proposals", {
+      .get(apiUrl + getProposalsEndpPoint, {
         headers: { "Access-Control-Allow-Origin": "*" },
       })
       .then((response) => {
@@ -83,7 +88,7 @@ function App() {
     
     try{
       axios
-        .get("http://127.0.0.1:5000/proposal-data/0x" + selectedCallId+ "/0x" + hash ,{})
+        .get(apiUrl + checkProposalEndPoint+"/0x" + selectedCallId+ "/0x" + hash ,{})
         .then((response) => {
           console.log(response.status)
           if(response.status === 200){
@@ -115,7 +120,7 @@ function App() {
 
     try{
     axios
-      .post("http://127.0.0.1:5000/register-proposal", { "callId": "0x" + selectedCallId, "proposal": "0x" + hash })
+      .post(apiUrl + registerEndPoint, { "callId": "0x" + selectedCallId, "proposal": "0x" + hash })
       .then((response) => {
         setVariant(response.status === 201 ? "success" : "danger");
         setHeading("Proposal"+ (response.status === 201 ? " " : " not " )+ "registered");
@@ -149,7 +154,7 @@ function App() {
       <p>Contract address: {contractAddress}</p>
       <p>Owner address: {owner}</p>
       <div>
-        <h1>List of calls:</h1>
+        <h1 >List of calls:</h1>
         <ul>
           {proposals.map((proposal) => (
             <li
