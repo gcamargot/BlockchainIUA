@@ -4,7 +4,8 @@ Este trabajo implica una modificación y extensión del trabajo práctico 9. El 
 
 El proyecto debe incluir tres componentes principales:
 
-* Un conjunto de *smart contracts*, ubicados en el subdirectorio `contracts`. Dicho subdirectorio debe tener la estructura de un proyecto `truffle` y debe ser posible desplegar todos los contratos relevantes ejecutando simplemente `truffle deploy`. Los contratos deben satisfacer como mínimo las especificaciones del Práctico 5 y pasar todos los casos de prueba.
+* Un conjunto de *smart contracts*, ubicados en el subdirectorio `contracts`. Dicho subdirectorio debe tener la estructura de un proyecto `truffle` y debe ser posible desplegar todos los contratos relevantes ejecutando simplemente `truffle deploy`. Los contratos deben satisfacer como mínimo las especificaciones del Práctico 6 y pasar todos los casos de prueba.
+
 * API REST, que satisfaga las especificaciones del práctico 6, y situada en el directorio `api`.
 Deben proveerse las instrucciones necesarias para desplegar y ejecutar el servidor que provee la API.
 
@@ -14,7 +15,7 @@ Puede usarse una estructura de directorios diferente si las herramientas utiliza
 
 ## Descripción general
 
-Debe proveerse un sistema de gestión de llamados a presentación de propuestas, con los criterios utilizados en los prácticos 5, 6 y 7.
+Debe proveerse un sistema de gestión de llamados a presentación de propuestas, con los criterios utilizados en los prácticos 6, 7 y 8.
 Pueden modificarse tanto los contratos como la API para proveer las funcionalidades requeridas. Si se agregan nuevos métodos o *endpoints* se deberá proveer lo siguiente:
 
 * Documentación que especifique funcionalidad, argumentos, valores devueltos y condiciones de error, ya sea como comentarios en el código o en el `README.md` correspondiente.
