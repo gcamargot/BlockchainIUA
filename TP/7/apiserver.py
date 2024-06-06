@@ -12,6 +12,7 @@ from flask import make_response
 import argparse
 from flask_cors import CORS, cross_origin
 
+
 empty = "0x0000000000000000000000000000000000000000"
 parser = argparse.ArgumentParser()
 mnemonic_route = "mnemonic.txt"
@@ -121,7 +122,7 @@ def register():
     
     if addressRecovered != address:
         return jsonify({"message": messages.INVALID_SIGNATURE}), 400, {"Content-Type": "application/json"}
-    
+
     is_authorized = cfp_factory_contract.functions.isAuthorized(w3.to_checksum_address(address.lower())).call()
     if is_authorized:
         return jsonify({"message": messages.ALREADY_AUTHORIZED}), 403, {"Content-Type": "application/json"}
@@ -201,6 +202,23 @@ def authorize(address):
         
         try:
                 cfp_factory_contract.functions.authorize(w3.to_checksum_address(address)).transact({"from": owner.address})
+        except Exception as e:
+                return make_response(jsonify({"message": str(e)}), 500)
+        
+        return make_response(jsonify({"message": messages.OK}), 200)
+
+@app.post('/unauthorize/<address>')
+@cross_origin()
+def unauthorize(address):
+        if not is_valid_address(address):
+                return make_response(jsonify({"message": messages.INVALID_ADDRESS}), 400)
+        
+        is_authorized = cfp_factory_contract.functions.isAuthorized(w3.to_checksum_address(address)).call()
+        if not is_authorized:
+                return make_response(jsonify({"message": messages.NOT_AUTHORIZED}), 403)
+        
+        try:
+                cfp_factory_contract.functions.unauthorize(w3.to_checksum_address(address)).transact({"from": owner.address})
         except Exception as e:
                 return make_response(jsonify({"message": str(e)}), 500)
         
@@ -309,24 +327,109 @@ def pending():
         A JSON response containing the call IDs of all pending calls for proposals.
     """
     try:
-        pending = cfp_factory_contract.functions.getAllPending().call()
-        return make_response(jsonify({"calls": pending}), 200)
+        pending = cfp_factory_contract.functions.getAllPending().transact({"from": owner.address})
+        print(pending.hex())
+        pending_list = []
+        for p in pending:
+            pending_list.append(p)
+
+        return make_response(jsonify({"pending": pending_list}), 200)
     except Exception as e:
         return make_response(jsonify({"message": str(e)}), 500)
 
-@app.get('/proposals')
+@app.get('/creators')
 @cross_origin()
-def proposals():
+def creators():
+    """
+    Retrieves a list of all creators.
+
+    Returns:
+        A JSON response containing the addresses of all creators.
+    """
+    try:
+        creators = cfp_factory_contract.functions.getCreatorsList().call()
+        creators_list = []
+        for creator in creators:
+            creators_list.append(creator)
+        print(creators)
+        return make_response(jsonify({"creators": creators_list}), 200)
+    except Exception as e:
+        return make_response(jsonify({"message": str(e)}), 500)
+    
+@app.get('/creator/<address>')
+@cross_origin()
+def creator(address):
+    """
+    Retrieves the address of a creator by index.
+
+    Parameters:
+    - index (int): The index of the creator.
+
+    Returns:
+    - response (dict): A JSON response containing the address of the creator.
+
+    Raises:
+    - HTTPException: If the index is invalid or the creator is not found.
+    """
+    try:
+        creator_address = cfp_factory_contract.functions.creators(int(index)).call()
+        return make_response(jsonify({"address": creator_address}), 200)
+    except Exception as e:
+        return make_response(jsonify({"message": str(e)}), 500)
+    
+@app.get('/createdBy/<address>')
+@cross_origin()
+def created_by(address):
+    """
+    Retrieves a list of call IDs created by a specific address.
+
+    Parameters:
+    - address (str): The address of the creator.
+
+    Returns:
+    - response (dict): A JSON response containing the call IDs created by the address.
+
+    Raises:
+    - HTTPException: If the address is invalid or not found.
+    """
+    if not is_valid_address(address):
+        return make_response(jsonify({"message": messages.INVALID_ADDRESS}), 400)
+    
+    try:
+        calls = cfp_factory_contract.functions.callsByCreator(address).call()
+        calls_list = []
+        for call in calls:
+            calls_list.append(call.hex())
+        return make_response(jsonify({"calls": calls_list}), 200)
+    except Exception as e:
+        return make_response(jsonify({"message": str(e)}), 500)
+
+
+@app.get('/calls')
+@cross_origin()
+def calls():
     """
     Retrieves a list of all proposals.
 
     Returns:
         A JSON response containing the call IDs of all proposals.
     """
+
+
     try:
-        proposals = cfp_factory_contract.functions.getCallsList().call()
-        proposals = [p.hex() for p in proposals]  # Convert bytes to hex
-        return make_response(jsonify({"proposals": proposals}), 200)
+        calls = cfp_factory_contract.functions.getCallsList().call()
+        calls_list = []
+        for call in calls:
+            
+            calls_list.append(
+                 {
+                    "creator": call[0],
+                    "cfp": call[1],
+                    "callId": call[2].hex(),
+                    "closingTime": datetime.fromtimestamp(call[3], timezone("America/Argentina/Buenos_Aires")).isoformat(),
+                    })
+        
+        return make_response(jsonify({"callsList": calls_list}), 200)
     except Exception as e:
         return make_response(jsonify({"message": str(e)}), 500)    
 

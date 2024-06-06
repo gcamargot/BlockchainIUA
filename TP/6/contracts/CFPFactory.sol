@@ -11,6 +11,8 @@ contract CFPFactory {
     struct CallForProposals {
         address creator;
         CFP cfp;
+        bytes32 callId;
+        uint256 timestamp;
     }
     enum status {
         Unregistered,
@@ -25,6 +27,7 @@ contract CFPFactory {
     address[] private _creators;
     uint256 public activeCreators;
     mapping(address => bytes32[]) private _createdBy;
+    CallForProposals[] private callsList;
     
     constructor() {
         factoryOwner = msg.sender;
@@ -56,10 +59,11 @@ contract CFPFactory {
         require(_calls[callId].creator == address(0), "El llamado ya existe");
         require(timestamp > block.timestamp, "El cierre de la convocatoria no puede estar en el pasado");
         CFP cfp = new CFP(callId, timestamp);
-        _calls[callId] = CallForProposals(msg.sender, cfp);
+        _calls[callId] = CallForProposals(msg.sender, cfp, callId, timestamp);
         if (_createdBy[msg.sender].length == 0) {
             activeCreators += 1;
         }
+        callsList.push(_calls[callId]);
         _createdBy[msg.sender].push(callId);
         emit CFPCreated(msg.sender, callId, cfp);
         return cfp;
@@ -83,7 +87,8 @@ contract CFPFactory {
         require(timestamp > block.timestamp, "El cierre de la convocatoria no puede estar en el pasado");
         
         CFP cfp = new CFP(callId, timestamp);
-        _calls[callId] = CallForProposals(creator, cfp);
+        _calls[callId] = CallForProposals(creator, cfp, callId, timestamp);
+        callsList.push(_calls[callId]);
         if (_createdBy[creator].length == 0) {
             activeCreators += 1;
         }
@@ -97,12 +102,25 @@ contract CFPFactory {
         return activeCreators;
     }
 
+    function getCreatorsList() public view returns (address[] memory) {
+        return _creators;
+    }
+
+    function getCallsList() public view returns (CallForProposals[] memory) {     
+        return callsList;
+    }
+
     /// Devuelve el identificador del llamado que está en la posición `index` de la lista de llamados creados por `creator`
     function createdBy(
         address creator,
         uint256 index
     ) public view returns (bytes32) {
         return _createdBy[creator][index];
+    }
+
+    function callsByCreator(address creator) public view returns (bytes32[] memory) {
+        
+        return _createdBy[creator];
     }
 
     // Devuelve la cantidad de llamados creados por `creator`
@@ -138,6 +156,7 @@ contract CFPFactory {
     function authorize(address creator) public {
         require(msg.sender == factoryOwner, "Solo el creador puede hacer esta llamada");
         _status[creator] = status.Authorized;
+        _creators.push(creator);
         
     }
 
@@ -148,7 +167,7 @@ contract CFPFactory {
      */
     function unauthorize(address creator) public {
         require(msg.sender == factoryOwner, "Solo el creador puede hacer esta llamada");
-        _status[creator] = status.Unauthorized;
+        _status[creator] = status.Pending;
     }
 
     // Devuelve la lista de todas las registraciones pendientes.

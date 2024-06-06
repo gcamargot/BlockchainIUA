@@ -1,199 +1,50 @@
-import "bootstrap/dist/css/bootstrap.min.css";
-import axios from "axios";
-import Navbar from "./components/Navbar";
+import NavbarMenu from "./components/Navbar";
+import CallsTable from "./components/CallsTable";
+import CreatorsTable from "./components/CreatorsTable";
 import { useState, useEffect } from "react";
-import { Button, Modal } from "react-bootstrap";
-import * as crypto from "crypto-js";
-import AlertCFP from "./components/Alert";
+import axios from "axios";
+import Administration from "./components/Administration";
 
 const apiUrl = "http://127.0.0.1:5000";
-const registerEndPoint = "/register-proposal";
-const contractAddressEndPoint = "/contract-address";
-const contractOwnerEndPoint = "/contract-owner";
-const getProposalsEndpPoint = "/proposals";
-const checkProposalEndPoint = "/proposal-data";
+const contractOwnerEndpoint = "/contract-owner";
 
 function App() {
-  const [contractAddress, setContractAddress] = useState("");
-  const [owner, setOwner] = useState("");
-  const [proposals, setProposals] = useState([]);
-  const [selectedCallId, setSelectedCalllId] = useState(null);
-  const [modalVisible, setModalVisible] = useState(false);
 
-  const [hash, setHash] = useState("");
-  const [variant, setVariant] = useState("success");
-  const [heading, setHeading] = useState("Proposal registered");
-  const [text, setText] = useState("The proposal has been registered successfully");
-  const [alertVisible, setAlertVisible] = useState(false);
-
-
-  const handleCallClick = (call: any) => {
-    setSelectedCalllId(call);
-    setModalVisible(true);
-  };
-
+  const [selectedTab, setSelectedTab] = useState(1);
+  const [selectedWallet, setSelectedWallet] = useState<any>(null);
+  const [userAccount, setUserAccount] = useState<string>("");
+  const [owner, setOwner] = useState<string>("");
+  
   useEffect(() => {
-    axios
-      .get(apiUrl + contractAddressEndPoint, {
-        headers: { "Access-Control-Allow-Origin": "*" },
-      })
-      .then((response) => {
-        setContractAddress(response.data.address);
-      })
-      .catch((error) => {
-        console.error("Error fetching contract address:", error);
-      });
-    axios
-      .get(apiUrl + contractOwnerEndPoint, {
-        headers: { "Access-Control-Allow-Origin": "*" },
-      })
-      .then((response) => {
-        setOwner(response.data.address);
-      })
-      .catch((error) => {
-        console.error("Error fetching owner:", error);
-      });
-    axios
-      .get(apiUrl + getProposalsEndpPoint, {
-        headers: { "Access-Control-Allow-Origin": "*" },
-      })
-      .then((response) => {
-        setProposals(response.data.proposals);
-      })
-      .catch((error) => {
-        console.error("Error fetching pending:", error);
-      });
+    axios.get(apiUrl + contractOwnerEndpoint, {
+      headers: { "Access-Control-Allow-Origin": "*" },
+    })
+    .then((response): void => {
+      setOwner(response.data["address"]);
+    })
+    .catch((error) => {
+      console.error("Error fetching owner:", error);
+    });
   }, []);
-
-  function handleUpload(e?: File) {
-    const fileReader = new FileReader();
-    fileReader.onloadend = async () => {
-      const fileData = fileReader.result;
-      if (fileData) {
-        const fileHash = crypto.SHA256(fileData.toString());
-        setHash(fileHash.toString());
-      } 
-    };
-    if (e) {
-      fileReader.readAsBinaryString(e);
-    } else {
-      setVariant("danger");
-      setHeading("File not uploaded");
-      setText("Please upload a file");
-      setAlertVisible(true);
-    }
+  
+  function updateSelectedTab(tab: number){
+    setSelectedTab(tab);
   }
 
-  function handleRegistered() {
-    
-    try{
-      axios
-        .get(apiUrl + checkProposalEndPoint+"/0x" + selectedCallId+ "/0x" + hash ,{})
-        .then((response) => {
-          console.log(response.status)
-          if(response.status === 200){
-            setVariant("primary");
-            setHeading("Proposal registered");
-            setText("The proposal is registered");
-        }
-        
-        })
-        .catch((error) => {
-          if(error.response.status === 404){
-            setVariant("primary");
-            setHeading("Proposal not registered");
-            setText("The proposal is not registered");
-          }
-          else{
-            setVariant("danger");
-            setHeading(error.response.status);
-            setText("The proposal is not valid");
-          }})
-      }catch(error){
-        console.error("Error registering proposal:", error);
-      }
-      setAlertVisible(true);
-    
+  function handleUserAccount(account: string){
+    setUserAccount(account);
   }
 
-  function handleRegister() {
-
-    try{
-    axios
-      .post(apiUrl + registerEndPoint, { "callId": "0x" + selectedCallId, "proposal": "0x" + hash })
-      .then((response) => {
-        setVariant(response.status === 201 ? "success" : "danger");
-        setHeading("Proposal"+ (response.status === 201 ? " " : " not " )+ "registered");
-        setText("The proposal has been registered successfully");
-      })
-      .catch((error) => {
-        if(error.response.status === 403){
-          setVariant("danger");
-          setHeading("Proposal not registered");
-          setText("The proposal was already registered");
-        }} );
-    }catch(error){
-      setVariant("danger");
-      setHeading("Proposal not registered");
-      setText("The proposal is not valid");
-    }
-    setAlertVisible(true);
-  }
-
-  function handleModalClose() {
-    setModalVisible(false);
-    setHash("");
-    setAlertVisible(false);
-  }
-
-
-
+  
   return (
     <div className="App">
-      <Navbar />
-      <p>Contract address: {contractAddress}</p>
-      <p>Owner address: {owner}</p>
+      <NavbarMenu setSelectedTab={updateSelectedTab} setSelectedWallet={setSelectedWallet} setUserAccount={handleUserAccount} factoryOwner={owner}/>
       <div>
-        <h1 >List of calls:</h1>
-        <ul>
-          {proposals.map((proposal) => (
-            <li
-              key={proposal}
-              onClick={() => handleCallClick(proposal)}
-            >
-              {"0x" + proposal}
-            </li>
-          ))}
-        </ul>
-        <Modal
-        show={modalVisible}
-        onHide={handleModalClose}
-        backdrop="static"
-        keyboard={false}
-        size="lg"
-      >
-        <Modal.Header closeButton>
-          <Modal.Title>{"Upload a file to check"}</Modal.Title>
-        </Modal.Header>
-        <Modal.Body>
-          <input
-            type="file"
-            onChange={(e) => {
-              
-              handleUpload(e.target.files![0]);
-            }}
-          />
-          {hash && <p>Hash: {"0x" + hash}</p>}
-        </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleRegister}>
-            Register Proposal
-          </Button>
-          <Button variant="primary" onClick={handleRegistered}>Check if proposal is registered</Button>
-        </Modal.Footer>
-        {alertVisible && <AlertCFP variant={variant} heading={heading} text={text} />}
-      </Modal>
+        {selectedTab === 1 && <CallsTable />}
+        {selectedTab === 2 && <CreatorsTable/>}
+        {selectedTab === 3 && <Administration/>}
       </div>
+      
     </div>
   );
 }

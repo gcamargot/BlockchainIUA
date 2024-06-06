@@ -1,30 +1,43 @@
-function Navbar() {
+import {Container, Nav, Navbar} from 'react-bootstrap';
+import MetamaskConnect from './MetamaskConnect';
+import { useState } from 'react';
+
+interface NavbarProps {
+  setSelectedTab: Function;
+  setSelectedWallet: Function;
+  setUserAccount: Function;
+  factoryOwner: string;
+
+}
+
+function NavbarMenu({setSelectedTab, setSelectedWallet, setUserAccount, factoryOwner}: NavbarProps) {
+
+  const [currentAccount, setCurrentAccount] = useState<string>("");
+
+  function handleSelectedTab(tab: number){
+    return () => {
+      setSelectedTab(tab);
+    }
+  }
+  function handleUserAccount(account: string){
+    setUserAccount(account);
+    setCurrentAccount(account);
+  }
+
   return (
     <>
-    <nav className="navbar navbar-expand-lg navbar-light bg-light">
-      <div className="container-fluid">
-        <a className="navbar-brand" href="#">Home</a>
-        <button className="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-          <span className="navbar-toggler-icon" />
-        </button>
-        <div className="collapse navbar-collapse" id="navbarNav">
-          <ul className="navbar-nav">
-            <li className="nav-item">
-              <a className="nav-link" href="#">Soon</a>
-            </li>
-            <li className="nav-item">
-              <a className="nav-link" href="#">Soon</a>
-            </li>
-            <li className="nav-item">
-              <a className="nav-link disabled">Disabled</a>
-            </li>
-          </ul>
-        </div>
-      </div>
-    </nav>
-
+    <Navbar bg="dark" data-bs-theme="dark">
+        <Container>
+          <Nav className="me-auto">
+            <Nav.Link onClick={handleSelectedTab(1)}>Calls</Nav.Link>
+            <Nav.Link onClick={handleSelectedTab(2)}>Creators</Nav.Link>
+            {factoryOwner.toLowerCase() === currentAccount && <Nav.Link onClick={handleSelectedTab(3)}>Administration</Nav.Link>}
+            <MetamaskConnect setSelectedWallet={setSelectedWallet} setUserAccount={handleUserAccount} />
+          </Nav>
+        </Container>
+      </Navbar>
     </>
   );
 };
 
-export default Navbar;
+export default NavbarMenu;
