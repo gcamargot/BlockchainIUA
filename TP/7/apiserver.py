@@ -11,6 +11,7 @@ from pytz import timezone
 from flask import make_response
 import argparse
 from flask_cors import CORS, cross_origin
+import binascii
 
 
 empty = "0x0000000000000000000000000000000000000000"
@@ -327,13 +328,9 @@ def pending():
         A JSON response containing the call IDs of all pending calls for proposals.
     """
     try:
-        pending = cfp_factory_contract.functions.getAllPending().transact({"from": owner.address})
-        print(pending.hex())
-        pending_list = []
-        for p in pending:
-            pending_list.append(p)
+        pending = cfp_factory_contract.functions.getAllPending().call({"from": owner.address})
 
-        return make_response(jsonify({"pending": pending_list}), 200)
+        return make_response(jsonify({"pending": pending}), 200)
     except Exception as e:
         return make_response(jsonify({"message": str(e)}), 500)
 

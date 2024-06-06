@@ -32,6 +32,8 @@ function NavbarMenu({setSelectedTab, setSelectedWallet, setUserAccount, factoryO
             <Nav.Link onClick={handleSelectedTab(1)}>Calls</Nav.Link>
             <Nav.Link onClick={handleSelectedTab(2)}>Creators</Nav.Link>
             {factoryOwner.toLowerCase() === currentAccount && <Nav.Link onClick={handleSelectedTab(3)}>Administration</Nav.Link>}
+          </Nav>
+          <Nav className="ml-auto">
             <MetamaskConnect setSelectedWallet={setSelectedWallet} setUserAccount={handleUserAccount} />
           </Nav>
         </Container>

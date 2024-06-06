@@ -38,29 +38,28 @@ const MetamaskConnect = ({setSelectedWallet, setUserAccount}: MetamaskConnectPro
       {providers.length > 0 ? (
         providers?.map((provider: EIP6963ProviderDetail, i) =>
           isConnected ? (
-            <>
-            {provider.info.name === "MetaMask" &&
-            < >
-              <a style={{color:"lightgrey"}} key={i}>{currentAccount}</a>
-              <button 
-                key={provider.info.uuid + i}
-                
-              >
-                <img src={provider.info.icon} alt={provider.info.name} />
-              </button>
-            </>
-            }</>
+            <div key={i}>
+              {provider.info.name === "MetaMask" && (
+                <div>
+                  <a style={{ color: "lightgrey" }}>{currentAccount}</a>
+                  <button key={provider.info.uuid}>
+                    <img src={provider.info.icon} alt={provider.info.name} />
+                  </button>
+                </div>
+              )}
+            </div>
           ) : (
-            <>{provider.info.name === "MetaMask" && 
-              <button
-                key={provider.info.uuid}
-                onClick={() => handleConnect(provider)}
-              >
-                <img src={provider.info.icon} alt={provider.info.name} />
-                <div>Conectar con {provider.info.name}</div>
-              </button>
-            }
-            </>
+            <div key={provider.info.name}>
+              {provider.info.name === "MetaMask" && (
+                <button
+                  key={provider.info.uuid}
+                  onClick={() => handleConnect(provider)}
+                >
+                  <img src={provider.info.icon} alt={provider.info.name} />
+                  <div>Conectar con {provider.info.name}</div>
+                </button>
+              )}
+            </div>
           )
         )
       ) : (

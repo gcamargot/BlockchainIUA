@@ -19,7 +19,6 @@ function CreatorsTable(){
           })
           .then((response): void => {
             setCreators(response.data["creators"]);
-            console.log(response.data);
           })
           .catch((error) => {
             console.error("Error fetching pending:", error);
