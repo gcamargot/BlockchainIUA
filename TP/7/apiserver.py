@@ -353,27 +353,7 @@ def creators():
     except Exception as e:
         return make_response(jsonify({"message": str(e)}), 500)
     
-@app.get('/creator/<address>')
-@cross_origin()
-def creator(address):
-    """
-    Retrieves the address of a creator by index.
 
-    Parameters:
-    - index (int): The index of the creator.
-
-    Returns:
-    - response (dict): A JSON response containing the address of the creator.
-
-    Raises:
-    - HTTPException: If the index is invalid or the creator is not found.
-    """
-    try:
-        creator_address = cfp_factory_contract.functions.creators(int(index)).call()
-        return make_response(jsonify({"address": creator_address}), 200)
-    except Exception as e:
-        return make_response(jsonify({"message": str(e)}), 500)
-    
 @app.get('/createdBy/<address>')
 @cross_origin()
 def created_by(address):
@@ -430,7 +410,25 @@ def calls():
     except Exception as e:
         return make_response(jsonify({"message": str(e)}), 500)    
 
+@app.get('/registered/<address>')
+def registered(address):
+    """
+    Check if an address is registered.
 
+    Parameters:
+    - address (str): The address to check.
+
+    Returns:
+    - response (dict): A JSON response indicating whether the address is registered.
+    """
+    if not is_valid_address(address):
+        return make_response(jsonify({"message": messages.INVALID_ADDRESS}), 400)
+
+    try:
+        is_registered = cfp_factory_contract.functions.isRegistered(w3.to_checksum_address(address)).call()
+        return make_response(jsonify({"registered": is_registered}), 200)
+    except Exception as e:
+        return make_response(jsonify({"message": str(e)}), 500)
 
     
 

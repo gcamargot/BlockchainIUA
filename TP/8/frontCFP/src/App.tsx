@@ -1,22 +1,20 @@
+import React, { useState, useEffect } from "react";
 import NavbarMenu from "./components/Navbar";
 import CallsTable from "./components/CallsTable";
 import CreatorsTable from "./components/CreatorsTable";
-import { useState, useEffect } from "react";
 import axios from "axios";
 import Administration from "./components/Administration";
+import config from "./config";
+import { MetaMaskProvider, useMetaMask } from "./components/MetamaskConnect";
 
-const apiUrl = "http://127.0.0.1:5000";
-const contractOwnerEndpoint = "/contract-owner";
-
-function App() {
-
+function AppContent() {
   const [selectedTab, setSelectedTab] = useState(1);
   const [selectedWallet, setSelectedWallet] = useState<any>(null);
-  const [userAccount, setUserAccount] = useState<string>("");
   const [owner, setOwner] = useState<string>("");
-  
+  const { connectMetaMask, userAccount } = useMetaMask();
+
   useEffect(() => {
-    axios.get(apiUrl + contractOwnerEndpoint, {
+    axios.get(config.apiUrl + config.endpoints.contractOwner, {
       headers: { "Access-Control-Allow-Origin": "*" },
     })
     .then((response): void => {
@@ -26,26 +24,33 @@ function App() {
       console.error("Error fetching owner:", error);
     });
   }, []);
-  
-  function updateSelectedTab(tab: number){
+
+  function updateSelectedTab(tab: number) {
     setSelectedTab(tab);
   }
 
-  function handleUserAccount(account: string){
-    setUserAccount(account);
-  }
-
-  
   return (
     <div className="App">
-      <NavbarMenu setSelectedTab={updateSelectedTab} setSelectedWallet={setSelectedWallet} setUserAccount={handleUserAccount} factoryOwner={owner}/>
+      <NavbarMenu
+        setSelectedTab={updateSelectedTab}
+        factoryOwner={owner}
+        connectMetaMask={connectMetaMask}
+        userAccount={userAccount}
+      />
       <div>
         {selectedTab === 1 && <CallsTable />}
-        {selectedTab === 2 && <CreatorsTable/>}
-        {selectedTab === 3 && <Administration/>}
+        {selectedTab === 2 && <CreatorsTable />}
+        {selectedTab === 3 && <Administration />}
       </div>
-      
     </div>
+  );
+}
+
+function App() {
+  return (
+    <MetaMaskProvider>
+      <AppContent />
+    </MetaMaskProvider>
   );
 }
 

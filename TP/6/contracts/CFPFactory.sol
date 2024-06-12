@@ -31,6 +31,7 @@ contract CFPFactory {
     
     constructor() {
         factoryOwner = msg.sender;
+        _status[factoryOwner] = status.Authorized;
     }
 
     // Dirección del dueño de la factoría
@@ -190,7 +191,7 @@ contract CFPFactory {
     // Devuelve la registración pendiente con índice `index`
     // Sólo puede ser ejecutada por el dueño de la factoría
     // En caso contrario revierte con el mensaje "Solo el creador puede hacer esta llamada".
-    function getPending(uint256 index) public view returns (address) {
+    function getPending(uint256 index) public view returns (address addr) {
         require(msg.sender == factoryOwner, "Solo el creador puede hacer esta llamada");
         require(index < pendingCount(), "No hay mas pendientes");
         uint256 j = 0;

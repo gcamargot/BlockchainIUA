@@ -1,69 +1,87 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
-import { Table } from "react-bootstrap";
-
-const apiUrl = "http://127.0.0.1:5000";
-const pendingEndpoint = "/pending";
+import React, { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
+import { useMetaMask } from './MetamaskConnect';
+import config from '../config'; // Ensure correct path to config
+import axios from 'axios'; // Assuming axios is used to fetch pending users
+import { Container, Table, Button } from 'react-bootstrap';
 
 function Administration() {
-  const [pending, setPending] = useState<string[]>([]);
-    useEffect(() => {
-        fetchPending();
-    }, []);
+  const { provider, signer } = useMetaMask();
+  const contractAddress = config.contract.address;
+  const [contract, setContract] = useState<ethers.Contract | null>(null);
 
- function fetchPending() {
-        axios
-          .get(apiUrl + pendingEndpoint, {
-            headers: { "Access-Control-Allow-Origin": "*" },
-          })
-          .then((response): void => {
-            setPending(response.data["pending"]);
-          })
-          .catch((error) => console.error("Error fetching pending:", error));
- }   
+  const [pendingUsers, setPendingUsers] = useState<string[]>([]);
 
-  function handleApprove(address: any) {
+  // Initialize contract when signer is available
+  useEffect(() => {
+    if (signer) {
+      const contractInstance = new ethers.Contract(contractAddress, config.contract.abi, signer);
+      setContract(contractInstance);
+    }
+  }, [signer]);
 
-    axios.post(apiUrl + "/authorize/"+address, {  })
-    .then((response) => {
-        fetchPending();
-    });
-}
+  // Fetch pending users from API on component mount
+  useEffect(() => {
+    axios.get(config.apiUrl + config.endpoints.pending)
+      .then(response => {
+        setPendingUsers(response.data['pending']);
+      })
+      .catch(error => {
+        console.error('Error fetching pending users:', error);
+      });
+  }, []);
 
-  function handleReject(){
+  // Function to authorize an address
+  const authorizeAddress = async (address: string) => {
+    if (!contract) {
+      alert('Contract not initialized');
+      return;
+    }
 
-  }
+    try {
+      const tx = await contract.authorize(address);
+      await tx.wait();
+      alert('Address authorized successfully');
+      // Remove the address from pendingUsers
+      setPendingUsers(pendingUsers.filter(user => user !== address));
+    } catch (error) {
+      console.error('Error authorizing address:', error);
+      alert('Error authorizing address');
+    }
+  };
+
 
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "top",
-        height: "100vh",
-        top: "0",
-      }}
-    >
-      <Table responsive>
-        <thead>
-          <tr>
-            <th>Index</th>
-            <th>Creator</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pending.map((p, index) => (
-            <tr key={index} >
-                <td>{index}</td>
-              <td>{p}</td>
-              <td>
-                <button onClick={() => handleApprove(p)}>Approve</button>
-              </td>
+    <Container className="my-4">
+      <h2>Administration Panel</h2>
+      <h3>Pending Users</h3>
+      {pendingUsers.length === 0 ? (
+        <p className="text-muted">There are 0 users that requested authorization.</p>
+      ) : (
+        <Table striped bordered hover>
+          <thead>
+            <tr>
+              <th>Index</th>
+              <th>Address</th>
+              <th>Authorize</th>
             </tr>
-          ))}
-        </tbody>
-      </Table>
-    </div>
+          </thead>
+          <tbody>
+            {pendingUsers.map((user, index) => (
+              <tr key={index}>
+                <td>{index + 1}</td>
+                <td>{user}</td>
+                <td>
+                  <Button variant="success" onClick={() => authorizeAddress(user)}>Authorize</Button>
+                </td>
+                
+              </tr>
+            ))}
+          </tbody>
+        </Table>
+      )}
+    </Container>
   );
 }
+
 export default Administration;

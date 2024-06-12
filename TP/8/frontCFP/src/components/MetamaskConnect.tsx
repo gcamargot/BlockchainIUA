@@ -1,75 +1,89 @@
-import { useSyncProviders } from "../hooks/useSyncProviders";
-import { useState } from "react";
-interface MetamaskConnectProps {
-    setSelectedWallet: Function;
-    setUserAccount: Function;
+import React, { useState, createContext, useContext, ReactNode, useEffect } from 'react';
+import { ethers } from 'ethers';
+
+type MetaMaskContextType = {
+  provider: ethers.providers.Web3Provider | null;
+  signer: ethers.Signer | null;
+  userAccount: string;
+  setUserAccount: React.Dispatch<React.SetStateAction<string>>;
+  connectMetaMask: () => Promise<void>;
+};
+
+type MetaMaskProviderProps = {
+  children: ReactNode;
+};
+
+const MetaMaskContext = createContext<MetaMaskContextType | undefined>(undefined);
+
+export const MetaMaskProvider: React.FC<MetaMaskProviderProps> = ({ children }) => {
+  const [provider, setProvider] = useState<ethers.providers.Web3Provider | null>(null);
+  const [signer, setSigner] = useState<ethers.Signer | null>(null);
+  const [userAccount, setUserAccount] = useState<string>('');
+
+  const connectMetaMask = async () => {
+    if (window.ethereum) {
+      const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+      setProvider(web3Provider);
+      await web3Provider.send("eth_requestAccounts", []);
+      const signer = web3Provider.getSigner();
+      setSigner(signer);
+      const userAccount = await signer.getAddress();
+      setUserAccount(userAccount);
+
+      // Listen for account changes
+      (window.ethereum as any).on('accountsChanged', handleAccountsChanged);
+    } else {
+      console.error("MetaMask is not installed");
     }
-
-const MetamaskConnect = ({setSelectedWallet, setUserAccount}: MetamaskConnectProps ) => {
-  const providers = useSyncProviders();
-
-  const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentAccount, setCurrentAccount] = useState<string>("");
-  // Connect to the selected provider using eth_requestAccounts.
-  const handleConnect = async (providerWithInfo: EIP6963ProviderDetail) => {
-    providers.forEach(async (provider) => {
-      if (provider.info.name === "MetaMask") {
-        try {
-          setIsLoading(true);
-          const accounts: string[] = (await providerWithInfo.provider.request({
-            method: "eth_requestAccounts",
-          })) as string[];
-          setIsConnected(true);
-          setIsLoading(false);
-          setSelectedWallet(providerWithInfo)
-          setUserAccount(accounts?.[0])
-          setCurrentAccount(accounts?.[0]);
-        } catch (error) {
-          // El usuario cancelo la peticion de conexion
-          setIsLoading(false);
-        }
-      }
-    });
   };
 
+  const handleAccountsChanged = (accounts: string[]) => {
+    if (accounts.length > 0) {
+      setUserAccount(accounts[0]);
+    } else {
+      setUserAccount('');
+    }
+  };
+
+  useEffect(() => {
+    // Check if user is already connected on initial load
+    const checkInitialConnection = async () => {
+      if (window.ethereum) {
+        const web3Provider = new ethers.providers.Web3Provider(window.ethereum);
+        const accounts = await web3Provider.listAccounts();
+        if (accounts.length > 0) {
+          setProvider(web3Provider);
+          const signer = web3Provider.getSigner();
+          setSigner(signer);
+          setUserAccount(accounts[0]);
+
+          // Listen for account changes
+          (window.ethereum as any).on('accountsChanged', handleAccountsChanged);
+        }
+      }
+    };
+
+    checkInitialConnection();
+
+    // Clean up the event listener when the component unmounts
+    return () => {
+      if (window.ethereum) {
+        (window.ethereum as any).removeListener('accountsChanged', handleAccountsChanged);
+      }
+    };
+  }, []);
+
   return (
-    <div>
-      {providers.length > 0 ? (
-        providers?.map((provider: EIP6963ProviderDetail, i) =>
-          isConnected ? (
-            <div key={i}>
-              {provider.info.name === "MetaMask" && (
-                <div>
-                  <a style={{ color: "lightgrey" }}>{currentAccount}</a>
-                  <button key={provider.info.uuid}>
-                    <img src={provider.info.icon} alt={provider.info.name} />
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div key={provider.info.name}>
-              {provider.info.name === "MetaMask" && (
-                <button
-                  key={provider.info.uuid}
-                  onClick={() => handleConnect(provider)}
-                >
-                  <img src={provider.info.icon} alt={provider.info.name} />
-                  <div>Conectar con {provider.info.name}</div>
-                </button>
-              )}
-            </div>
-          )
-        )
-      ) : (
-        // Que mostrar cuando no te detecta ninguna wallet
-        <>
-          <a>No hay wallet</a>{" "}
-        </>
-      )}
-    </div>
+    <MetaMaskContext.Provider value={{ provider, signer, userAccount, setUserAccount, connectMetaMask }}>
+      {children}
+    </MetaMaskContext.Provider>
   );
 };
 
-export default MetamaskConnect;
+export const useMetaMask = () => {
+  const context = useContext(MetaMaskContext);
+  if (!context) {
+    throw new Error('useMetaMask must be used within a MetaMaskProvider');
+  }
+  return context;
+};

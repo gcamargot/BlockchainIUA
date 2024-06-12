@@ -1,10 +1,10 @@
-import { Button, Modal } from "react-bootstrap";
-import AlertCFP from "./Alert";
+import { Button, Modal, Alert } from "react-bootstrap";
 import { useState } from "react";
 import axios from "axios";
 import * as crypto from "crypto-js";
-
-const apiUrl = "http://127.0.0.1:5000";
+import config from "../config";
+import { useMetaMask } from './MetamaskConnect'; // Import MetaMask hook
+import { ethers } from "ethers";
 
 interface UploadProposalProps {
   selectedCallId: string;
@@ -17,8 +17,9 @@ function UploadProposalModal({
   modalVisible,
   setModalVisible,
 }: UploadProposalProps) {
-  const checkProposalEndPoint = "/proposal-data";
-  const registerEndPoint = "/register-proposal";
+
+  const { signer } = useMetaMask(); // Get signer from MetaMask hook
+
   const [hash, setHash] = useState("");
   const [variant, setVariant] = useState("success");
   const [heading, setHeading] = useState("Proposal registered");
@@ -26,6 +27,8 @@ function UploadProposalModal({
     "The proposal has been registered successfully"
   );
   const [alertVisible, setAlertVisible] = useState(false);
+  const [isChecked, setIsChecked] = useState<boolean>(false);
+  const [isRegistered, setIsRegistered] = useState<boolean>(false);
 
   function handleUpload(e?: File) {
     const fileReader = new FileReader();
@@ -34,6 +37,7 @@ function UploadProposalModal({
       if (fileData) {
         const fileHash = crypto.SHA256(fileData.toString());
         setHash(fileHash.toString());
+        setIsChecked(false);
       }
     };
     if (e) {
@@ -46,69 +50,105 @@ function UploadProposalModal({
     }
   }
 
-  function handleRegistered() {
-    try {
-      axios
-        .get(
-          apiUrl +
-            checkProposalEndPoint +
-            "/0x" +
-            selectedCallId +
-            "/0x" +
-            hash,
-          {}
-        )
-        .then((response) => {
-          console.log(response.status);
-          if (response.status === 200) {
-            setVariant("primary");
-            setHeading("Proposal registered");
-            setText("The proposal is registered");
-          }
-        })
-        .catch((error) => {
-          if (error.response.status === 404) {
-            setVariant("primary");
-            setHeading("Proposal not registered");
-            setText("The proposal is not registered");
-          } else {
-            setVariant("danger");
-            setHeading(error.response.status);
-            setText("The proposal is not valid");
-          }
-        });
-    } catch (error) {
-      console.error("Error registering proposal:", error);
+  async function handleCheck() {
+    if (!hash) {
+      setVariant("danger");
+      setHeading("No file uploaded");
+      setText("Please upload a file before checking the proposal.");
+      setAlertVisible(true);
+      return;
     }
+
+    try {
+      const response = await axios.get(
+        `${config.apiUrl}${config.endpoints.proposal_data}0x${selectedCallId}/0x${hash}`
+      );
+
+      if (response.status === 200) {
+        setVariant("primary");
+        setHeading("Proposal already registered");
+        setText("The proposal is already registered.");
+        setIsRegistered(true);
+      } else {
+        setVariant("success");
+        setHeading("Proposal not registered");
+        setText("The proposal is not registered. You can proceed to register.");
+        setIsRegistered(false);
+      }
+    } catch (error: any) {
+      if (error.response && error.response.status === 404) {
+        setVariant("success");
+        setHeading("Proposal not registered");
+        setText("The proposal is not registered. You can proceed to register.");
+        setIsRegistered(false);
+      } else {
+        setVariant("danger");
+        setHeading("Error checking proposal");
+        setText("An error occurred while checking the proposal.");
+      }
+    }
+    setIsChecked(true);
     setAlertVisible(true);
   }
-  function handleRegister() {
-    try {
-      axios
-        .post(apiUrl + registerEndPoint, {
-          callId: "0x" + selectedCallId,
-          proposal: "0x" + hash,
-        })
-        .then((response) => {
-          setVariant(response.status === 201 ? "success" : "danger");
-          setHeading(
-            "Proposal" +
-              (response.status === 201 ? " " : " not ") +
-              "registered"
-          );
-          setText("The proposal has been registered successfully");
-        })
-        .catch((error) => {
-          if (error.response.status === 403) {
-            setVariant("danger");
-            setHeading("Proposal not registered");
-            setText("The proposal was already registered");
-          }
-        });
-    } catch (error) {
+
+  async function handleRegister() {
+    if (!hash) {
       setVariant("danger");
-      setHeading("Proposal not registered");
-      setText("The proposal is not valid");
+      setHeading("No file uploaded");
+      setText("Please upload a file before registering a proposal.");
+      setAlertVisible(true);
+      return;
+    }
+
+    if (signer) {
+      // Interact directly with the smart contract
+      try {
+        const contractAddress = config.contract.address;
+        const contractABI = config.contract.abi;
+        const contract = new ethers.Contract(contractAddress, contractABI, signer);
+
+        const tx = await contract.registerProposal(`0x${selectedCallId}`, `0x${hash}`);
+        await tx.wait();
+
+        setVariant("success");
+        setHeading("Proposal registered");
+        setText("The proposal has been registered successfully.");
+        setIsRegistered(true);
+      } catch (error) {
+        setVariant("danger");
+        setHeading("Proposal not registered");
+        setText("An error occurred during registration.");
+      }
+    } else {
+      // Fallback to API if no signer is available
+      alert("You are not connected to Metamask. Your proposal will be registered anonymously.")
+      try {
+        const response = await axios.post(config.apiUrl + config.endpoints.register_proposal, {
+          callId: `0x${selectedCallId}`,
+          proposal: `0x${hash}`,
+        });
+
+        if (response.status === 201) {
+          setVariant("success");
+          setHeading("Proposal registered");
+          setText("The proposal has been registered successfully.");
+          setIsRegistered(true);
+        } else {
+          setVariant("warning");
+          setHeading("Proposal not registered");
+          setText("Unexpected response status: " + response.status);
+        }
+      } catch (error: any) {
+        if (error.response && error.response.status === 403) {
+          setVariant("primary");
+          setHeading("Proposal not registered");
+          setText("The proposal was already registered.");
+        } else {
+          setVariant("danger");
+          setHeading("Proposal not registered");
+          setText("An error occurred during registration." + error.response.data.message + error.response.status);
+        }
+      }
     }
     setAlertVisible(true);
   }
@@ -117,6 +157,8 @@ function UploadProposalModal({
     setModalVisible(false);
     setHash("");
     setAlertVisible(false);
+    setIsChecked(false);
+    setIsRegistered(false);
   }
 
   return (
@@ -141,15 +183,22 @@ function UploadProposalModal({
         {hash && <p>Hash: {"0x" + hash}</p>}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={handleRegister}>
-          Register Proposal
-        </Button>
-        <Button variant="primary" onClick={handleRegistered}>
-          Check if proposal is registered
-        </Button>
+        {!isChecked && (
+          <Button variant="primary" onClick={handleCheck}>
+            Check Proposal
+          </Button>
+        )}
+        {isChecked && !isRegistered && (
+          <Button variant="primary" onClick={handleRegister}>
+            Register Proposal
+          </Button>
+        )}
       </Modal.Footer>
       {alertVisible && (
-        <AlertCFP variant={variant} heading={heading} text={text} />
+        <Alert variant={variant} onClose={() => setAlertVisible(false)} dismissible>
+          <Alert.Heading>{heading}</Alert.Heading>
+          <p>{text}</p>
+        </Alert>
       )}
     </Modal>
   );

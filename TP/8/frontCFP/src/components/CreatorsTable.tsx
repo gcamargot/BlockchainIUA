@@ -1,54 +1,58 @@
 import axios from 'axios';
 import { useState, useEffect } from 'react';
-import { Table } from 'react-bootstrap';
+import { Table, Button } from 'react-bootstrap';
 import CreatorProposalsModal from './CreatorProposalsModal';
-
-const apiUrl = "http://127.0.0.1:5000";
+import config from '../config';
 
 function CreatorsTable(){
 
-    const getCreatorsEndPoint = "/creators"
     const [creators, setCreators] = useState<string[]>([]);    
     const [selectedCreator, setSelectedCreator] = useState<string>("");
     const [creatorModalVisible, setCreatorModalVisible] = useState<boolean>(false);
 
     useEffect(() => {
         axios
-          .get(apiUrl + getCreatorsEndPoint, {
+          .get(config.apiUrl + config.endpoints.creators, {
             headers: { "Access-Control-Allow-Origin": "*" },
           })
           .then((response): void => {
             setCreators(response.data["creators"]);
           })
           .catch((error) => {
-            console.error("Error fetching pending:", error);
+            console.error("Error fetching creators:", error);
           });
       }, []);
 
-    function handleCreatorClick(creator: any){
+    function handleCreatorClick(creator: string){
         setSelectedCreator(creator);
         setCreatorModalVisible(true);
     }
 
     return (
-        <div style={{display: 'flex',  justifyContent:'center', alignItems:'top', height: '100vh', top:'0'}}>
-        <Table responsive>
-            <thead>
-                <tr>
-                    <th>Index</th>
-                    <th>Creator</th>
-                </tr>
-            </thead>
-            <tbody>
-                {creators.map((creator, index) => (
-                    <tr key={index} onClick={() => handleCreatorClick(creator)}>
-                        <td>{index}</td>
-                        <td>{creator}</td>
+        <div className="d-flex justify-content-center align-items-top" style={{ height: '100vh', paddingTop: '20px' }}>
+            <Table striped bordered hover responsive>
+                <thead>
+                    <tr>
+                        <th>Index</th>
+                        <th>Creator</th>
+                        <th>Actions</th>
                     </tr>
-                ))}
-            </tbody>
-        </Table>
-        {creatorModalVisible && <CreatorProposalsModal creator={selectedCreator} modalVisible={creatorModalVisible} setModalVisible={setCreatorModalVisible} />}
+                </thead>
+                <tbody>
+                    {creators.map((creator, index) => (
+                        <tr key={index}>
+                            <td>{index + 1}</td>
+                            <td>{creator}</td>
+                            <td>
+                                <Button variant="primary" onClick={() => handleCreatorClick(creator)}>
+                                    Check all his calls
+                                </Button>
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </Table>
+            {creatorModalVisible && <CreatorProposalsModal creator={selectedCreator} modalVisible={creatorModalVisible} setModalVisible={setCreatorModalVisible} />}
         </div>
     );
 }
