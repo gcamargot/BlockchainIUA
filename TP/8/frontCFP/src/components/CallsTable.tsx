@@ -163,7 +163,7 @@ function CallsTable() {
       />
       <div style={{ marginTop: '20px' }}>
         {!userAccount ? (
-          <Button variant="primary" onClick={handleMetaMaskLogin}>Connect MetaMask</Button>
+          <Button variant="primary" onClick={handleMetaMaskLogin}>Connect MetaMask to Create Calls</Button>
         ) : isAuthorized ? (
           <Button variant="success" onClick={() => setCreationModalVisible(true)}>Create your Call</Button>
         ) : isRegistered ? (

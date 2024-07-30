@@ -144,7 +144,8 @@ contract CFPFactory {
      *  Si ya se ha registrado, revierte con el mensaje "Ya se ha registrado"
      */
     function register() public {
-        require(_status[msg.sender] == status.Unregistered, "Ya se ha registrado");
+        require(_status[msg.sender] != status.Pending, "Ya se ha registrado");
+        require(_status[msg.sender] != status.Authorized, "Ya se ha registrado");
         _status[msg.sender] = status.Pending;
         _creators.push(msg.sender);
     }
@@ -191,7 +192,7 @@ contract CFPFactory {
     // Devuelve la registración pendiente con índice `index`
     // Sólo puede ser ejecutada por el dueño de la factoría
     // En caso contrario revierte con el mensaje "Solo el creador puede hacer esta llamada".
-    function getPending(uint256 index) public view returns (address addr) {
+    function getPending(uint256 index) public view returns (address) {
         require(msg.sender == factoryOwner, "Solo el creador puede hacer esta llamada");
         require(index < pendingCount(), "No hay mas pendientes");
         uint256 j = 0;

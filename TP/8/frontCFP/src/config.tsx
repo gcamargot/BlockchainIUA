@@ -16,7 +16,7 @@ const config = {
       register_proposal: "register-proposal",
     },
     contract: {
-      address: "0x5f272722044266e4981D02691f13634F87E564cc", // Replace with the actual contract address
+      address : CFPFactory.networks[5777].address, // Replace with the actual contract address
       abi: CFPFactory.abi,
     },
   };
