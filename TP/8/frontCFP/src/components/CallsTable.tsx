@@ -18,6 +18,8 @@ interface Call {
 function CallsTable() {
   const { userAccount, setUserAccount, signer, connectMetaMask } = useMetaMask();
   const [calls, setCalls] = useState<Call[]>([]);
+  const [creatorNames, setCreatorNames] = useState<{ [key: string]: string | null }>({});
+  const [callNames, setCallNames] = useState<{ [key: string]: string | null }>({});
   const [selectedCallId, setSelectedCallId] = useState<string>('');
   const [modalUploadVisible, setUploadModalVisible] = useState<boolean>(false);
   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
@@ -29,11 +31,73 @@ function CallsTable() {
       .get(config.apiUrl + config.endpoints.calls)
       .then((response): void => {
         setCalls(response.data.callsList);
+        response.data.callsList.forEach((call: Call) => {
+          resolveCreators(call.creator);
+          resolveCalls(call.callId);
+        });
       })
       .catch((error) => {
         console.error('Error fetching calls:', error);
       });
   }, [creationModalVisible]);
+
+  const resolveCalls = async (address: string) => {
+    if (!signer) return;
+
+    try {
+      const reverseNode = ethers.utils.namehash(`${address}.addr.reverse`);
+      const contractAddress = config.PublicResolverContract?.address;
+      const contractABI = config.PublicResolverContract?.abi;
+
+      if (!contractAddress || !contractABI) {
+        console.error("PublicResolver contract address or ABI is missing in the config.");
+        return;
+      }
+
+      const publicResolver = new ethers.Contract(contractAddress, contractABI, signer);
+      const name = await publicResolver.name(reverseNode);
+
+      setCallNames(prevNames => ({
+        ...prevNames,
+        [address]: name || null,
+      }));
+    } catch (error) {
+      console.error('Error resolving ENS name:', error);
+      setCallNames(prevNames => ({
+        ...prevNames,
+        [address]: null,
+      }));
+    }
+  };
+
+  const resolveCreators = async (address: string) => {
+    if (!signer) return;
+
+    try {
+      const reverseNode = ethers.utils.namehash(`${address.slice(2)}.addr.reverse`);
+      const contractAddress = config.PublicResolverContract?.address;
+      const contractABI = config.PublicResolverContract?.abi;
+
+      if (!contractAddress || !contractABI) {
+        console.error("PublicResolver contract address or ABI is missing in the config.");
+        return;
+      }
+
+      const publicResolver = new ethers.Contract(contractAddress, contractABI, signer);
+      const name = await publicResolver.name(reverseNode);
+
+      setCreatorNames(prevNames => ({
+        ...prevNames,
+        [address]: name || null,
+      }));
+    } catch (error) {
+      console.error('Error resolving ENS name:', error);
+      setCreatorNames(prevNames => ({
+        ...prevNames,
+        [address]: null,
+      }));
+    }
+  };
 
   const checkAuthorization = async (account: string) => {
     try {
@@ -67,8 +131,8 @@ function CallsTable() {
     }
 
     try {
-      const contractAddress = config.contract.address;
-      const contractABI = config.contract.abi;
+      const contractAddress = config.CFPFactoryContract.address;
+      const contractABI = config.CFPFactoryContract.abi;
       const contract = new ethers.Contract(contractAddress, contractABI, signer);
 
       const tx = await contract.register();
@@ -146,8 +210,8 @@ function CallsTable() {
         <tbody>
           {calls.map((call, index) => (
             <tr key={index}>
-              <td>{call.cfp}</td>
-              <td>{call.creator}</td>
+              <td>{callNames[call.callId] || call.cfp}</td>
+              <td>{creatorNames[call.creator] || call.creator}</td>
               <td>{call.closingTime}</td>
               <td>
                 <Button variant="primary" onClick={() => handleCallClick(call)}>Register Proposal</Button>

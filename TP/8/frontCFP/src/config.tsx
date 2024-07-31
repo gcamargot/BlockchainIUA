@@ -1,5 +1,9 @@
 // src/config.ts
 import CFPFactory from "../../../6/build/contracts/CFPFactory.json";
+import PublicResolver from "../../../6/build/contracts/PublicResolver.json";
+import UserFIFSRegistrar from "../../../6/build/contracts/UserFIFSRegistrar.json";
+import ENSRegistry from "../../../6/build/contracts/ENSRegistry.json";
+import ReverseRegistrar from "../../../6/build/contracts/ReverseRegistrar.json";
 
 const config = {
     apiUrl: "http://127.0.0.1:5000/",  // Base API URL
@@ -15,10 +19,28 @@ const config = {
       proposal_data: "proposal-data/",
       register_proposal: "register-proposal",
     },
-    contract: {
+    CFPFactoryContract: {
       address : CFPFactory.networks[5777].address, // Replace with the actual contract address
       abi: CFPFactory.abi,
     },
+
+    PublicResolverContract: {
+      address: PublicResolver.networks[5777].address, // Replace with the actual contract address
+      abi: PublicResolver.abi,
+    },
+    UserFIFSRegistrarContract: {
+      address: UserFIFSRegistrar.networks[5777].address, // Replace with the actual contract address
+      abi: UserFIFSRegistrar.abi,
+    },
+    ENSRegistryContract: {
+      address: ENSRegistry.networks[5777].address, // Replace with the actual contract address
+      abi: ENSRegistry.abi,
+    },
+    ReverseRegistryContract: {
+      address: ReverseRegistrar.networks[5777].address, // Replace with the actual contract address
+      abi: ReverseRegistrar.abi,
+    },
+
   };
   
   export default config;

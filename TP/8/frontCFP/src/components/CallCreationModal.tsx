@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form } from 'react-bootstrap';
+import { Modal, Button, Form, Spinner } from 'react-bootstrap';
 import { ethers } from 'ethers';
 import { useMetaMask } from './MetamaskConnect';
 import config from '../config'; // Import the contract configuration
@@ -12,18 +12,30 @@ interface CallCreationModalProps {
 
 function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
   const { signer } = useMetaMask();
+  const [name, setName] = useState('');
   const [cfp, setCfp] = useState('');
   const [closingDate, setClosingDate] = useState('');
   const [closingHour, setClosingHour] = useState('');
   const [closingMinute, setClosingMinute] = useState('');
-  const [closingSecond, setClosingSecond] = useState('');
+  const [closingSecond, setClosingSecond] = useState('00');
   const [isValidDate, setIsValidDate] = useState(true);
   const [isValidTime, setIsValidTime] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(false);
 
   useEffect(() => {
     if (show) {
-      const randomHex = ethers.utils.hexlify(ethers.utils.randomBytes(32)).substring(2); // Generate a 256-bit hex string
+      const randomHex = ethers.Wallet.createRandom().address.substring(2); // Generate a 256-bit hex string
       setCfp(randomHex);
+
+      // Set default closing date and time
+      const now = new Date();
+      const defaultClosingDate = now.toISOString().split('T')[0];
+      setClosingDate(defaultClosingDate);
+
+      const tenMinutesFromNow = new Date(now.getTime() + 10 * 60000);
+      setClosingHour(tenMinutesFromNow.getHours().toString().padStart(2, '0'));
+      setClosingMinute(tenMinutesFromNow.getMinutes().toString().padStart(2, '0'));
     }
   }, [show]);
 
@@ -38,6 +50,68 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
     setIsValidTime(closingHour !== '' && closingMinute !== '' && closingSecond !== '');
   };
 
+  const nameHash = (domain: string) => {
+    let node =
+      "0x0000000000000000000000000000000000000000000000000000000000000000";
+    if (domain !== "") {
+      const labels = domain.split(".");
+      for (let i = labels.length - 1; i >= 0; i--) {
+        const labelSha3 = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(labels[i]));
+        node = ethers.utils.keccak256(ethers.utils.concat([node, labelSha3]));
+      }
+    }
+    return node;
+  };
+
+  const isUserRegistered = async (name: string, ensRegistryContract: ethers.Contract) => {
+    try {
+      const node = nameHash(name + ".calls.eth");
+      const resolverAddress = await ensRegistryContract.resolver(node);
+
+      return resolverAddress !== "0x0000000000000000000000000000000000000000";
+    } catch (error) {
+      console.log("Error verifying if the call name is registered: ", error);
+      return false;
+    }
+  };
+
+  const handleCheckAvailability = async () => {
+    if (!signer) {
+      alert('Please connect to MetaMask');
+      return;
+    }
+
+    if (!name) {
+      alert('Please enter a name.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const ensRegistryAddress = config.ENSRegistryContract.address; // Use contract address from config
+      const ensRegistryABI = config.ENSRegistryContract.abi; // Use contract ABI from config
+      const ensRegistryContract = new ethers.Contract(ensRegistryAddress, ensRegistryABI, signer);
+
+      const isRegistered = await isUserRegistered(name, ensRegistryContract);
+
+      if (isRegistered) {
+        alert("The call name is already registered.");
+        setIsLoading(false);
+        setIsAvailable(false);
+        return;
+      }
+
+      setIsAvailable(true);
+      alert("The call name is available.");
+    } catch (error) {
+      console.error('Error checking availability:', error);
+      alert('Error checking availability!');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleCreate = async () => {
     if (!signer) {
       alert('Please connect to MetaMask');
@@ -49,26 +123,97 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
       return;
     }
 
-    try {
-      const contractAddress = config.contract.address; // Use contract address from config
-      const contractABI = config.contract.abi; // Use contract ABI from config
-      const contract = new ethers.Contract(contractAddress, contractABI, signer);
+    if (!name) {
+      alert('Please enter a name.');
+      return;
+    }
 
+    setIsLoading(true); // Show loading spinner
+
+    try {
       const callId = '0x' + cfp;
+      console.log("Call ID: ", callId);
       const closingTime = new Date(
         `${closingDate}T${closingHour.padStart(2, '0')}:${closingMinute.padStart(2, '0')}:${closingSecond.padStart(2, '0')}`
       );
       const timestamp = Math.floor(closingTime.getTime() / 1000);
+      const userAccount = await signer.getAddress();
 
-      const tx = await contract.create(callId, timestamp);
-      await tx.wait();
+      // Interact with callFIFSRegistrar contract
+      const callFIFSRegistrarAddress = config.UserFIFSRegistrarContract.address; // Use contract address from config
+      const callFIFSRegistrarABI = config.UserFIFSRegistrarContract.abi; // Use contract ABI from config
+      const callFIFSRegistrarContract = new ethers.Contract(callFIFSRegistrarAddress, callFIFSRegistrarABI, signer);
+      
+      const publicResolverAddress = config.PublicResolverContract.address; // Use contract address from config
+      const publicResolverABI = config.PublicResolverContract.abi; // Use contract ABI from config
+      const publicResolverContract = new ethers.Contract(publicResolverAddress, publicResolverABI, signer);
+
+      const ensRegistryAddress = config.ENSRegistryContract.address; // Use contract address from config
+      const ensRegistryABI = config.ENSRegistryContract.abi; // Use contract ABI from config
+      const ensRegistryContract = new ethers.Contract(ensRegistryAddress, ensRegistryABI, signer);
+
+      const reverseRegistryAddress = config.ReverseRegistryContract.address; // Use contract address from config
+      const reverseRegistryABI = config.ReverseRegistryContract.abi; // Use contract ABI from config
+      const reverseRegistryContract = new ethers.Contract(reverseRegistryAddress, reverseRegistryABI, signer);
+
+      const nameWithDomain = `${name}.calls.eth`;
+      const nameHashValue = nameHash(nameWithDomain);
+      
+      // Interact with CFPFactory contract
+      const cfpFactoryAddress = config.CFPFactoryContract.address; // Use contract address from config
+      const cfpFactoryABI = config.CFPFactoryContract.abi; // Use contract ABI from config
+      const cfpFactoryContract = new ethers.Contract(cfpFactoryAddress, cfpFactoryABI, signer);
+
+      const callIdHex = ethers.utils.keccak256(callId);
+
+      const createTx = await cfpFactoryContract.create(callIdHex, timestamp);
+      
+      await createTx.wait();
+      
+
+      const cfpCheck = await cfpFactoryContract.calls(callIdHex);
 
       alert('Call created successfully!');
       onCreate(cfp, '', closingTime.toISOString());
-      onHide();
+      
+      const registerTx = await callFIFSRegistrarContract.register(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(name)), userAccount);
+      await registerTx.wait();
+      console.log("Register receipt: ", registerTx);
+      
+      const setAddrTx = await publicResolverContract.setAddr(nameHashValue, cfpCheck[0]);
+      await setAddrTx.wait();
+      console.log("Set Addr receipt: ", setAddrTx);
+
+      const setResolverTx = await ensRegistryContract.setResolver(nameHashValue, publicResolverContract.address);
+      await setResolverTx.wait();
+
+      const setNameTx = await reverseRegistryContract.setName(callIdHex, name);
+      await setNameTx.wait();
+
+      const resolvedAddress = await publicResolverContract.addr(nameHashValue);
+      console.log(nameHashValue)
+      if (resolvedAddress.toLowerCase() === userAccount.toLowerCase()) {
+        alert(`Call name ${name}.calls.eth has been successfully registered.`);
+      } else {
+        alert(`Resolved address ${resolvedAddress} does not match user address ${userAccount}.`);
+      }
+      onHide(); // Close the modal immediately after signing the transaction
+      
     } catch (error) {
       console.error('Error during call creation:', error);
-      alert('Call creation failed!');
+      if (error instanceof Error) {
+        if (error.message.includes('CALL_EXCEPTION')) {
+          alert(`Permission error: ${error.message}`);
+        } else if (error.message.includes('4001')) {
+          alert('User cancelled the signature request.');
+        } else {
+          alert(`Unknown error: ${error.message}`);
+        }
+      } else {
+        alert('An unknown error occurred.');
+      }
+    } finally {
+      setIsLoading(false); // Hide loading spinner
     }
   };
 
@@ -79,12 +224,23 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
       </Modal.Header>
       <Modal.Body>
         <Form>
+          <Form.Group controlId="formName">
+            <Form.Label>Name</Form.Label>
+            <Form.Control
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter name"
+              disabled={isLoading}
+            />
+          </Form.Group>
           <Form.Group controlId="formCfp">
             <Form.Label>CFP</Form.Label>
             <Form.Control
               type="text"
-              value={cfp}
+              value={"0x" + cfp}
               readOnly
+              disabled
             />
           </Form.Group>
           <Form.Group controlId="formClosingDate">
@@ -130,22 +286,17 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
             />
           </Form.Group>
         </Form>
-        {(!isValidDate || !isValidTime) && (
-          <div className="text-danger">
-            Please select a valid date and time in the future.
-          </div>
-        )}
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
-          Cancel
-        </Button>
-        <Button variant="primary" onClick={handleCreate} disabled={!isValidDate || !isValidTime}>
-          Create
-        </Button>
-      </Modal.Footer>
-    </Modal>
-  );
+    <Button variant="secondary" onClick={onHide} disabled={isLoading}>
+      Cancel
+    </Button>
+    <Button variant="primary" onClick={isAvailable ? handleCreate : handleCheckAvailability} disabled={!isValidDate || !isValidTime || isLoading}>
+      {isLoading ? <Spinner animation="border" size="sm" /> : isAvailable ? 'Create' : 'Check Availability'}
+    </Button>
+  </Modal.Footer>
+</Modal>
+);
 }
 
 export default CallCreationModal;

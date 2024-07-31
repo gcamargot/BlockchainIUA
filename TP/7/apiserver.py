@@ -28,12 +28,27 @@ cors = CORS(app)
 app.config['CORS_HEADERS'] = 'Content-Type'
 w3 = Web3(HTTPProvider('http://localhost:' + str(args.gport)))
 fCFPFactory = args.build + "/build/contracts/CFPFactory.json"
+fPublicResolver = args.build + "/build/contracts/PublicResolver.json"
+fUserFIFSRegistrar = args.build + "/build/contracts/UserFIFSRegistrar.json"
+
 with open(fCFPFactory) as f:
     cfp_factory = json.load(f)
     cfp_abi = cfp_factory['abi']
     cfp_address = cfp_factory['networks'][network]['address']
     print("CFPFactory address: ", cfp_address)
     cfp_factory_contract = w3.eth.contract(address=cfp_address, abi=cfp_abi)
+
+with open(fPublicResolver) as f:
+    public_resolver = json.load(f)
+    public_resolver_abi = public_resolver['abi']
+    public_resolver_address = public_resolver['networks'][network]['address']
+    public_resolver_contract = w3.eth.contract(address=public_resolver_address, abi=public_resolver_abi)
+
+with open(fUserFIFSRegistrar) as f:
+    user_fifs_registrar = json.load(f)
+    user_fifs_registrar_abi = user_fifs_registrar['abi']
+    user_fifs_registrar_address = user_fifs_registrar['networks'][network]['address']
+    user_fifs_registrar_contract = w3.eth.contract(address=user_fifs_registrar_address, abi=user_fifs_registrar_abi)
 
 @app.post('/create')
 def create():
@@ -448,6 +463,62 @@ def is_valid_call_id(call_id):
     
     # If it doesn't match the regex (alphanumeric and 64 characters), it's not a valid hash
     return re.match(r'^0x[0-9a-fA-F]{64}$', call_id)
+
+@app.get('/resolve/<name>')
+def resolve(name):
+    """
+    Resolve a name to an address using the PublicResolver contract.
+
+    Parameters:
+    - name (str): The name to resolve.
+
+    Returns:
+    - response (dict): A JSON response containing the resolved address or an error message.
+    """
+    try:
+        # Use Web3's keccak function to hash the name
+        node = Web3.keccak(text=name)
+        # Call the addr function of the public resolver contract
+        resolved_address = public_resolver_contract.functions.addr(node).call()
+        if resolved_address == empty:
+            return make_response(jsonify({"message": messages.NAME_NOT_FOUND}), 404)
+        return make_response(jsonify({"address": resolved_address}), 200)
+    except Exception as e:
+        return make_response(jsonify({"message": str(e)}), 500)
+
+@app.post('/register-name')
+def register_name():
+    """
+    Register a name using the UserFIFSRegistrar contract.
+
+    Parameters:
+    - name (str): The name to register.
+    - owner (str): The address of the owner.
+
+    Returns:
+    - response (dict): A JSON response indicating success or failure.
+    """
+    try:
+        data = request.get_json()
+        name = data['name']
+        owner = data['owner']
+        
+        if not is_valid_address(owner):
+            return make_response(jsonify({"message": messages.INVALID_ADDRESS}), 400)
+        
+        # Hash the name to create a nameHash
+        name_hash = w3.keccak(text=name)
+        
+        # Ensure owner address is in checksum format
+        owner_checksum = w3.to_checksum_address(owner)
+        
+        # Call the register function of the UserFIFSRegistrar contract
+        tx = user_fifs_registrar_contract.functions.register(name_hash, owner_checksum).transact({"from": owner_checksum})
+        w3.eth.waitForTransactionReceipt(tx)
+        
+        return make_response(jsonify({"message": messages.OK}), 201)
+    except Exception as e:
+        return make_response(jsonify({"message": str(e)}), 500)
 
 def is_valid_mnemonic(mnemonic):
     return len(mnemonic.split()) == 12  

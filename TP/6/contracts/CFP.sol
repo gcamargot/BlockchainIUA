@@ -1,6 +1,9 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import "./ReverseRegistrar.sol";
+import "./PublicResolver.sol";
+
 contract CFP {
     // Evento que se emite cuando alguien registra una propuesta
 
@@ -20,6 +23,9 @@ contract CFP {
     bytes32 private _callId;
     uint256 private _closingTime;
     address private _creator;
+
+    ReverseRegistrar revRegistrar;
+    PublicResolver pubResolver;
 
     mapping(bytes32 => ProposalData) public _proposalData; 
     bytes32[] public _proposals;
@@ -111,4 +117,12 @@ contract CFP {
     ) public view returns (uint256) {
         return _proposalData[proposal].timestamp;
     }
-}
+    function setName(string memory name) public returns (bytes32) {
+        return revRegistrar.setName(name);
+    }
+
+    function getName(bytes32 node) public view returns (string memory) {
+        return pubResolver.name(node);
+    }
+}   
+

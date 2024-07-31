@@ -2,6 +2,9 @@
 pragma solidity ^0.8.19;
 
 import "./CFP.sol";
+import "./ReverseRegistrar.sol";
+import "./PublicResolver.sol";
+
 
 contract CFPFactory {
     // Evento que se emite cuando se crea un llamado a presentación de propuestas
@@ -28,9 +31,14 @@ contract CFPFactory {
     uint256 public activeCreators;
     mapping(address => bytes32[]) private _createdBy;
     CallForProposals[] private callsList;
+
+    ReverseRegistrar revRegistrar;
+    PublicResolver pubResolver;
     
-    constructor() {
+    constructor(ReverseRegistrar revReg, PublicResolver pubRes) {
         factoryOwner = msg.sender;
+        revRegistrar = revReg;
+        pubResolver = pubRes;
         _status[factoryOwner] = status.Authorized;
     }
 
@@ -206,7 +214,7 @@ contract CFPFactory {
         }
 
         // Revert no existen más pendientes
-        
+        revert("No existen mas pendientes");
     }
 
     // Devuelve la cantidad de registraciones pendientes.
@@ -232,5 +240,12 @@ contract CFPFactory {
     // Devuelve verdadero si una cuenta está autorizada a crear llamados.
     function isAuthorized(address account) public view returns (bool) {
         return _status[account] == status.Authorized;
+    }
+    function setName(bytes32 callId, string memory name) public returns (bytes32) {
+      return _calls[callId].cfp.setName(name);
+    }
+
+    function getName(bytes32 callId, bytes32 node) public view returns (string memory) {
+      return _calls[callId].cfp.getName(node);
     }
 }

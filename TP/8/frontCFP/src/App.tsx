@@ -9,7 +9,6 @@ import { MetaMaskProvider, useMetaMask } from "./components/MetamaskConnect";
 
 function AppContent() {
   const [selectedTab, setSelectedTab] = useState(1);
-  const [selectedWallet, setSelectedWallet] = useState<any>(null);
   const [owner, setOwner] = useState<string>("");
   const { connectMetaMask, userAccount } = useMetaMask();
 

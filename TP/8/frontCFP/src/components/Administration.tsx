@@ -7,7 +7,7 @@ import { Container, Table, Button } from 'react-bootstrap';
 
 function Administration() {
   const { provider, signer } = useMetaMask();
-  const contractAddress = config.contract.address;
+  const contractAddress = config.CFPFactoryContract.address;
   const [contract, setContract] = useState<ethers.Contract | null>(null);
 
   const [pendingUsers, setPendingUsers] = useState<string[]>([]);
@@ -15,7 +15,7 @@ function Administration() {
   // Initialize contract when signer is available
   useEffect(() => {
     if (signer) {
-      const contractInstance = new ethers.Contract(contractAddress, config.contract.abi, signer);
+      const contractInstance = new ethers.Contract(contractAddress, config.CFPFactoryContract.abi, signer);
       setContract(contractInstance);
     }
   }, [signer]);

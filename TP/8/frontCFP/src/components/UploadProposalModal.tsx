@@ -60,7 +60,7 @@ function UploadProposalModal({
     }
 
     try {
-      const response = await axios.get( config.apiUrl + config.endpoints.proposal_data + "0x" + selectedCallId + "0x" + hash
+      const response = await axios.get( config.apiUrl + config.endpoints.proposal_data + "0x" + selectedCallId + "/0x" + hash
       );
 
       if (response.status === 200) {
@@ -102,11 +102,9 @@ function UploadProposalModal({
     if (signer) {
       // Interact directly with the smart contract
       try {
-        const contractAddress = config.contract.address;
-        const contractABI = config.contract.abi;
+        const contractAddress = config.CFPFactoryContract.address;
+        const contractABI = config.CFPFactoryContract.abi;
         const contract = new ethers.Contract(contractAddress, contractABI, signer);
-        console.log("0x" + selectedCallId)
-        console.log(contractAddress)
         const tx = await contract.registerProposal("0x" + selectedCallId, "0x" + hash);
         await tx.wait();
 
