@@ -3,6 +3,8 @@ import { Modal, Button, Form, Spinner } from 'react-bootstrap';
 import { ethers } from 'ethers';
 import { useMetaMask } from './MetamaskConnect';
 import config from '../config'; // Import the contract configuration
+ // Add the import statement at the top of the file
+ import Web3 from 'web3';
 
 interface CallCreationModalProps {
   show: boolean;
@@ -25,8 +27,7 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
 
   useEffect(() => {
     if (show) {
-      const randomHex = ethers.Wallet.createRandom().address.substring(2); // Generate a 256-bit hex string
-      setCfp(randomHex);
+      setCfp(generateRandomHash(64)); // Generate a 256-bit hex string
 
       // Set default closing date and time
       const now = new Date();
@@ -131,7 +132,7 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
     setIsLoading(true); // Show loading spinner
 
     try {
-      const callId = '0x' + cfp;
+      const callId = cfp;
       console.log("Call ID: ", callId);
       const closingTime = new Date(
         `${closingDate}T${closingHour.padStart(2, '0')}:${closingMinute.padStart(2, '0')}:${closingSecond.padStart(2, '0')}`
@@ -140,8 +141,8 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
       const userAccount = await signer.getAddress();
 
       // Interact with callFIFSRegistrar contract
-      const callFIFSRegistrarAddress = config.UserFIFSRegistrarContract.address; // Use contract address from config
-      const callFIFSRegistrarABI = config.UserFIFSRegistrarContract.abi; // Use contract ABI from config
+      const callFIFSRegistrarAddress = config.CallFIFSRegistrarContract.address; // Use contract address from config
+      const callFIFSRegistrarABI = config.CallFIFSRegistrarContract.abi; // Use contract ABI from config
       const callFIFSRegistrarContract = new ethers.Contract(callFIFSRegistrarAddress, callFIFSRegistrarABI, signer);
       
       const publicResolverAddress = config.PublicResolverContract.address; // Use contract address from config
@@ -152,12 +153,13 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
       const ensRegistryABI = config.ENSRegistryContract.abi; // Use contract ABI from config
       const ensRegistryContract = new ethers.Contract(ensRegistryAddress, ensRegistryABI, signer);
 
-      const reverseRegistryAddress = config.ReverseRegistryContract.address; // Use contract address from config
-      const reverseRegistryABI = config.ReverseRegistryContract.abi; // Use contract ABI from config
-      const reverseRegistryContract = new ethers.Contract(reverseRegistryAddress, reverseRegistryABI, signer);
+      const web3 = new Web3(window.ethereum);
+      const cfpFactoryContractv2 = new web3.eth.Contract(
+        config.CFPFactoryContract.abi,
+        config.CFPFactoryContract.address
+      );
 
-      const nameWithDomain = `${name}.calls.eth`;
-      const nameHashValue = nameHash(nameWithDomain);
+      const nameWithDomain = `${name}.calls.cfp`;
       
       // Interact with CFPFactory contract
       const cfpFactoryAddress = config.CFPFactoryContract.address; // Use contract address from config
@@ -175,24 +177,35 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
 
       alert('Call created successfully!');
       onCreate(cfp, '', closingTime.toISOString());
-      
+
+      const node = nameHash(nameWithDomain);
+
+      // Replace the existing code with the fixed code
       const registerTx = await callFIFSRegistrarContract.register(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(name)), userAccount);
       await registerTx.wait();
       console.log("Register receipt: ", registerTx);
       
-      const setAddrTx = await publicResolverContract.setAddr(nameHashValue, cfpCheck[0]);
+      console.log("CFP Check: ", cfpCheck);
+      const setAddrTx = await publicResolverContract.setAddr(node, cfpCheck[1]);
       await setAddrTx.wait();
       console.log("Set Addr receipt: ", setAddrTx);
 
-      const setResolverTx = await ensRegistryContract.setResolver(nameHashValue, publicResolverContract.address);
+      const setResolverTx = await ensRegistryContract.setResolver(node, publicResolverAddress);
       await setResolverTx.wait();
+      console.log("Set Resolver receipt: ", setResolverTx);
+      
+      console.log("Le seteamos el callIdHex: " + callIdHex + " al el nombre: " + name)
+      //const setNameTx = await cfpFactoryContract.setName(callIdHex, name);
+      //await setNameTx.wait();
+      const setNameTx = await cfpFactoryContractv2.methods
+				.setName(callIdHex, name)
+				.send({ from: userAccount, gas: 6721975, gasPrice: 20000000000 });
+			
+      console.log("Set Name receipt: ", setNameTx);
 
-      const setNameTx = await reverseRegistryContract.setName(callIdHex, name);
-      await setNameTx.wait();
-
-      const resolvedAddress = await publicResolverContract.addr(nameHashValue);
-      console.log(nameHashValue)
-      if (resolvedAddress.toLowerCase() === userAccount.toLowerCase()) {
+      const resolvedAddress = await publicResolverContract.addr(node);
+      console.log("Node:" + node)
+      if (resolvedAddress.toLowerCase() === cfpCheck.cfp.toLowerCase()) {
         alert(`Call name ${name}.calls.eth has been successfully registered.`);
       } else {
         alert(`Resolved address ${resolvedAddress} does not match user address ${userAccount}.`);
@@ -214,7 +227,24 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
       }
     } finally {
       setIsLoading(false); // Hide loading spinner
+      onHide(); // Close the modal
     }
+  };
+  const generateRandomHash = (length: number) => {
+    if (length % 2 !== 0) {
+      throw new Error(
+        "Length must be an even number to generate a valid hex string."
+      );
+    }
+  
+    const byteLength = length / 2; // Cada byte se convierte en dos caracteres hexadecimales
+    const array = new Uint8Array(byteLength);
+    window.crypto.getRandomValues(array);
+    let hexString = "";
+    for (let i = 0; i < array.length; i++) {
+      hexString += array[i].toString(16).padStart(2, "0");
+    }
+    return "0x" + hexString;
   };
 
   return (
@@ -238,7 +268,7 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
             <Form.Label>CFP</Form.Label>
             <Form.Control
               type="text"
-              value={"0x" + cfp}
+              value={cfp}
               readOnly
               disabled
             />

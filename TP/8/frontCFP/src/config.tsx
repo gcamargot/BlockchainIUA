@@ -4,6 +4,7 @@ import PublicResolver from "../../../6/build/contracts/PublicResolver.json";
 import UserFIFSRegistrar from "../../../6/build/contracts/UserFIFSRegistrar.json";
 import ENSRegistry from "../../../6/build/contracts/ENSRegistry.json";
 import ReverseRegistrar from "../../../6/build/contracts/ReverseRegistrar.json";
+import CallFIFSRegistrar from "../../../6/build/contracts/CallFIFSRegistrar.json";
 
 const config = {
     apiUrl: "http://127.0.0.1:5000/",  // Base API URL
@@ -39,6 +40,10 @@ const config = {
     ReverseRegistryContract: {
       address: ReverseRegistrar.networks[5777].address, // Replace with the actual contract address
       abi: ReverseRegistrar.abi,
+    },
+    CallFIFSRegistrarContract: {
+      address: CallFIFSRegistrar.networks[5777].address, // Replace with the actual contract address
+      abi: CallFIFSRegistrar.abi,
     },
 
   };

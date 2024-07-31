@@ -62,7 +62,7 @@ function CallsTable() {
         [address]: name || null,
       }));
     } catch (error) {
-      console.error('Error resolving ENS name:', error);
+      console.error('Error resolving ENS Calls:', error);
       setCallNames(prevNames => ({
         ...prevNames,
         [address]: null,

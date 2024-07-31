@@ -3,14 +3,14 @@ import { ethers } from 'ethers';
 import { useMetaMask } from './MetamaskConnect';
 import config from '../config'; // Ensure correct path to config
 import axios from 'axios'; // Assuming axios is used to fetch pending users
-import { Container, Table, Button } from 'react-bootstrap';
+import { Container, Table, Button, OverlayTrigger, Tooltip } from 'react-bootstrap';
 
 function Administration() {
   const { provider, signer } = useMetaMask();
   const contractAddress = config.CFPFactoryContract.address;
   const [contract, setContract] = useState<ethers.Contract | null>(null);
-
   const [pendingUsers, setPendingUsers] = useState<string[]>([]);
+  const [resolvedNames, setResolvedNames] = useState<{ [key: string]: string | null }>({});
 
   // Initialize contract when signer is available
   useEffect(() => {
@@ -24,12 +24,44 @@ function Administration() {
   useEffect(() => {
     axios.get(config.apiUrl + config.endpoints.pending)
       .then(response => {
-        setPendingUsers(response.data['pending']);
+        const users: string[] = response.data['pending'];
+        setPendingUsers(users);
+        users.forEach(user => resolveENSName(user));
       })
       .catch(error => {
         console.error('Error fetching pending users:', error);
       });
   }, []);
+
+  // Resolve ENS name for an address
+  const resolveENSName = async (address: string) => {
+    if (!signer) return;
+
+    try {
+      const reverseNode = ethers.utils.namehash(`${address.slice(2)}.addr.reverse`);
+      const contractAddress = config.PublicResolverContract?.address;
+      const contractABI = config.PublicResolverContract?.abi;
+
+      if (!contractAddress || !contractABI) {
+        console.error("PublicResolver contract address or ABI is missing in the config.");
+        return;
+      }
+
+      const publicResolver = new ethers.Contract(contractAddress, contractABI, signer);
+      const name = await publicResolver.name(reverseNode);
+
+      setResolvedNames(prevNames => ({
+        ...prevNames,
+        [address]: name || null,
+      }));
+    } catch (error) {
+      console.error('Error resolving ENS name:', error);
+      setResolvedNames(prevNames => ({
+        ...prevNames,
+        [address]: null,
+      }));
+    }
+  };
 
   // Function to authorize an address
   const authorizeAddress = async (address: string) => {
@@ -50,6 +82,11 @@ function Administration() {
     }
   };
 
+  // Function to handle copying the address to the clipboard
+  const handleCopyAddress = async (address: string) => {
+    await navigator.clipboard.writeText(address);
+    alert('Address copied to clipboard!');
+  };
 
   return (
     <Container className="my-4">
@@ -62,7 +99,7 @@ function Administration() {
           <thead>
             <tr>
               <th>Index</th>
-              <th>Address</th>
+              <th>Address / ENS Name</th>
               <th>Authorize</th>
             </tr>
           </thead>
@@ -70,11 +107,22 @@ function Administration() {
             {pendingUsers.map((user, index) => (
               <tr key={index}>
                 <td>{index + 1}</td>
-                <td>{user}</td>
+                <td>
+                  <OverlayTrigger
+                    placement="top"
+                    overlay={<Tooltip id={`tooltip-${index}`}>{user}</Tooltip>}
+                  >
+                    <span
+                      style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => handleCopyAddress(user)}
+                    >
+                      {resolvedNames[user] || user}
+                    </span>
+                  </OverlayTrigger>
+                </td>
                 <td>
                   <Button variant="success" onClick={() => authorizeAddress(user)}>Authorize</Button>
                 </td>
-                
               </tr>
             ))}
           </tbody>
