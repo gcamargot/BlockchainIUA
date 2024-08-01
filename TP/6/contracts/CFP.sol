@@ -58,13 +58,16 @@ contract CFP {
      *  Si el `timestamp` del bloque actual es mayor o igual al tiempo de cierre especificado,
      *  revierte con el mensaje "El cierre de la convocatoria no puede estar en el pasado".
      */
-    constructor(bytes32 _cId, uint256 _cTime) {
+    constructor(bytes32 _cId, uint256 _cTime, ReverseRegistrar revReg, PublicResolver pubRes) {
         if (block.timestamp >= _cTime) {
             revert("El cierre de la convocatoria no puede estar en el pasado");
         }
         _callId = _cId;
         _closingTime = _cTime;
         _creator = msg.sender;
+        revRegistrar = revReg;
+        pubResolver = pubRes;
+
     }
 
     // Devuelve la cantidad de propuestas presentadas

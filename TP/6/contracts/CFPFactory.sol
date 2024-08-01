@@ -67,7 +67,7 @@ contract CFPFactory {
         require(_status[msg.sender] == status.Authorized, "No autorizado");
         require(_calls[callId].creator == address(0), "El llamado ya existe");
         require(timestamp > block.timestamp, "El cierre de la convocatoria no puede estar en el pasado");
-        CFP cfp = new CFP(callId, timestamp);
+        CFP cfp = new CFP(callId, timestamp, revRegistrar, pubResolver);
         _calls[callId] = CallForProposals(msg.sender, cfp, callId, timestamp);
         if (_createdBy[msg.sender].length == 0) {
             activeCreators += 1;
@@ -95,7 +95,7 @@ contract CFPFactory {
         require(_calls[callId].creator == address(0), "El llamado ya existe");
         require(timestamp > block.timestamp, "El cierre de la convocatoria no puede estar en el pasado");
         
-        CFP cfp = new CFP(callId, timestamp);
+        CFP cfp = new CFP(callId, timestamp, revRegistrar, pubResolver);
         _calls[callId] = CallForProposals(creator, cfp, callId, timestamp);
         callsList.push(_calls[callId]);
         if (_createdBy[creator].length == 0) {

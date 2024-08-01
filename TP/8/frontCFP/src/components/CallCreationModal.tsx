@@ -24,7 +24,7 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
   const [isValidTime, setIsValidTime] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
-
+  
   useEffect(() => {
     if (show) {
       setCfp(generateRandomHash(64)); // Generate a 256-bit hex string
@@ -53,28 +53,31 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
 
   const nameHash = (domain: string) => {
     let node =
-      "0x0000000000000000000000000000000000000000000000000000000000000000";
+        "0x0000000000000000000000000000000000000000000000000000000000000000";
+    domain.toString();
     if (domain !== "") {
-      const labels = domain.split(".");
-      for (let i = labels.length - 1; i >= 0; i--) {
-        const labelSha3 = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(labels[i]));
-        node = ethers.utils.keccak256(ethers.utils.concat([node, labelSha3]));
-      }
+        const labels = domain.split(".");
+
+        for (let i = labels.length - 1; i >= 0; i--) {
+            const labelSha3 = Web3.utils.sha3(labels[i]);
+            node = Web3.utils.sha3(node + labelSha3.slice(2), { encoding: "hex" });
+        }
     }
+
     return node;
-  };
+};
 
-  const isUserRegistered = async (name: string, ensRegistryContract: ethers.Contract) => {
-    try {
-      const node = nameHash(name + ".calls.eth");
-      const resolverAddress = await ensRegistryContract.resolver(node);
-
-      return resolverAddress !== "0x0000000000000000000000000000000000000000";
-    } catch (error) {
-      console.log("Error verifying if the call name is registered: ", error);
-      return false;
-    }
-  };
+const isUserRegistered = async (name: string, ensRegistryContract: any ) => {
+  try {
+      return (
+          (await ensRegistryContract
+              .owner(nameHash(name + ".calls.eth")) !==
+          "0x0000000000000000000000000000000000000000"
+      ));
+  } catch (error) {
+      console.error("Error verificarExistenciaNombre: ", error);
+  }
+};
 
   const handleCheckAvailability = async () => {
     if (!signer) {
@@ -90,6 +93,7 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
     setIsLoading(true);
 
     try {
+
       const ensRegistryAddress = config.ENSRegistryContract.address; // Use contract address from config
       const ensRegistryABI = config.ENSRegistryContract.abi; // Use contract ABI from config
       const ensRegistryContract = new ethers.Contract(ensRegistryAddress, ensRegistryABI, signer);
@@ -151,22 +155,14 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
 
       const ensRegistryAddress = config.ENSRegistryContract.address; // Use contract address from config
       const ensRegistryABI = config.ENSRegistryContract.abi; // Use contract ABI from config
-      const ensRegistryContract = new ethers.Contract(ensRegistryAddress, ensRegistryABI, signer);
-
-      const web3 = new Web3(window.ethereum);
-      const cfpFactoryContractv2 = new web3.eth.Contract(
-        config.CFPFactoryContract.abi,
-        config.CFPFactoryContract.address
-      );
-
-      const nameWithDomain = `${name}.calls.cfp`;
+      const ensRegistryContract = new ethers.Contract(ensRegistryAddress, ensRegistryABI, signer);  
       
       // Interact with CFPFactory contract
       const cfpFactoryAddress = config.CFPFactoryContract.address; // Use contract address from config
       const cfpFactoryABI = config.CFPFactoryContract.abi; // Use contract ABI from config
       const cfpFactoryContract = new ethers.Contract(cfpFactoryAddress, cfpFactoryABI, signer);
 
-      const callIdHex = ethers.utils.keccak256(callId);
+      const callIdHex = Web3.utils.keccak256(callId);
 
       const createTx = await cfpFactoryContract.create(callIdHex, timestamp);
       
@@ -178,33 +174,28 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
       alert('Call created successfully!');
       onCreate(cfp, '', closingTime.toISOString());
 
-      const node = nameHash(nameWithDomain);
-
       // Replace the existing code with the fixed code
-      const registerTx = await callFIFSRegistrarContract.register(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(name)), userAccount);
+      const registerTx = await callFIFSRegistrarContract.register(Web3.utils.keccak256(name), userAccount);
       await registerTx.wait();
       console.log("Register receipt: ", registerTx);
       
       console.log("CFP Check: ", cfpCheck);
-      const setAddrTx = await publicResolverContract.setAddr(node, cfpCheck[1]);
+      const setAddrTx = await publicResolverContract.setAddr(nameHash(name + ".calls.eth"), cfpCheck[1]);
       await setAddrTx.wait();
       console.log("Set Addr receipt: ", setAddrTx);
 
-      const setResolverTx = await ensRegistryContract.setResolver(node, publicResolverAddress);
+      const setResolverTx = await ensRegistryContract.setResolver(nameHash(name + ".calls.eth"), publicResolverAddress);
       await setResolverTx.wait();
       console.log("Set Resolver receipt: ", setResolverTx);
       
       console.log("Le seteamos el callIdHex: " + callIdHex + " al el nombre: " + name)
-      //const setNameTx = await cfpFactoryContract.setName(callIdHex, name);
-      //await setNameTx.wait();
-      const setNameTx = await cfpFactoryContractv2.methods
-				.setName(callIdHex, name)
-				.send({ from: userAccount, gas: 6721975, gasPrice: 20000000000 });
+      const setNameTx = await cfpFactoryContract.setName(callIdHex, name);
+      await setNameTx.wait();
 			
       console.log("Set Name receipt: ", setNameTx);
 
-      const resolvedAddress = await publicResolverContract.addr(node);
-      console.log("Node:" + node)
+      const resolvedAddress = await publicResolverContract.addr(nameHash(name + ".calls.eth"));
+      console.log("Node:" + nameHash(name + ".calls.eth"))
       if (resolvedAddress.toLowerCase() === cfpCheck.cfp.toLowerCase()) {
         alert(`Call name ${name}.calls.eth has been successfully registered.`);
       } else {
