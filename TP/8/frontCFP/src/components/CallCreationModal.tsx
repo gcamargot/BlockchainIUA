@@ -15,7 +15,7 @@ interface CallCreationModalProps {
 function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
   const { signer } = useMetaMask();
   const [name, setName] = useState('');
-  const [cfp, setCfp] = useState('');
+  const [callId, setCallId] = useState('');
   const [closingDate, setClosingDate] = useState('');
   const [closingHour, setClosingHour] = useState('');
   const [closingMinute, setClosingMinute] = useState('');
@@ -27,7 +27,7 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
   
   useEffect(() => {
     if (show) {
-      setCfp(generateRandomHash(64)); // Generate a 256-bit hex string
+      setCallId(generateRandomHash(64)); // Generate a 256-bit hex string
 
       // Set default closing date and time
       const now = new Date();
@@ -136,7 +136,7 @@ const isUserRegistered = async (name: string, ensRegistryContract: any ) => {
     setIsLoading(true); // Show loading spinner
 
     try {
-      const callId = cfp;
+      
       console.log("Call ID: ", callId);
       const closingTime = new Date(
         `${closingDate}T${closingHour.padStart(2, '0')}:${closingMinute.padStart(2, '0')}:${closingSecond.padStart(2, '0')}`
@@ -169,7 +169,7 @@ const isUserRegistered = async (name: string, ensRegistryContract: any ) => {
       await createTx.wait();
       
 
-      const cfpCheck = await cfpFactoryContract.calls(callIdHex);
+      const cfp = await cfpFactoryContract.calls(callIdHex);
 
       alert('Call created successfully!');
       onCreate(cfp, '', closingTime.toISOString());
@@ -178,9 +178,8 @@ const isUserRegistered = async (name: string, ensRegistryContract: any ) => {
       const registerTx = await callFIFSRegistrarContract.register(Web3.utils.keccak256(name), userAccount);
       await registerTx.wait();
       console.log("Register receipt: ", registerTx);
-      
-      console.log("CFP Check: ", cfpCheck);
-      const setAddrTx = await publicResolverContract.setAddr(nameHash(name + ".calls.eth"), cfpCheck[1]);
+    
+      const setAddrTx = await publicResolverContract.setAddr(nameHash(name + ".calls.eth"), cfp[1]);
       await setAddrTx.wait();
       console.log("Set Addr receipt: ", setAddrTx);
 
@@ -196,10 +195,10 @@ const isUserRegistered = async (name: string, ensRegistryContract: any ) => {
 
       const resolvedAddress = await publicResolverContract.addr(nameHash(name + ".calls.eth"));
       console.log("Node:" + nameHash(name + ".calls.eth"))
-      if (resolvedAddress.toLowerCase() === cfpCheck.cfp.toLowerCase()) {
+      if (resolvedAddress.toLowerCase() === cfp.cfp.toLowerCase()) {
         alert(`Call name ${name}.calls.eth has been successfully registered.`);
       } else {
-        alert(`Resolved address ${resolvedAddress} does not match user address ${userAccount}.`);
+        alert(`Resolved address ${resolvedAddress} does not match CFP address ${cfp.cfp.toLowerCase()}.`);
       }
       onHide(); // Close the modal immediately after signing the transaction
       
@@ -256,10 +255,10 @@ const isUserRegistered = async (name: string, ensRegistryContract: any ) => {
             />
           </Form.Group>
           <Form.Group controlId="formCfp">
-            <Form.Label>CFP</Form.Label>
+            <Form.Label>CallId</Form.Label>
             <Form.Control
               type="text"
-              value={cfp}
+              value={Web3.utils.keccak256(callId)}
               readOnly
               disabled
             />

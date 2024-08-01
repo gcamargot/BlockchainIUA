@@ -2,6 +2,7 @@ import axios from 'axios';
 import { useState, useEffect } from 'react';
 import { Table, Button, OverlayTrigger, Tooltip, Toast, ToastContainer } from 'react-bootstrap';
 import CreatorProposalsModal from './CreatorProposalsModal';
+import UploadProposalModal from './UploadProposalModal';
 import config from '../config';
 import { useMetaMask } from './MetamaskConnect';
 import { ethers } from 'ethers';
@@ -12,6 +13,9 @@ function CreatorsTable() {
     const [creatorNames, setCreatorNames] = useState<{ [key: string]: string | null }>({});
     const [selectedCreator, setSelectedCreator] = useState<string>("");
     const [creatorModalVisible, setCreatorModalVisible] = useState<boolean>(false);
+    const [uploadModalVisible, setUploadModalVisible] = useState<boolean>(false);
+    const [selectedCallId, setSelectedCallId] = useState<string>("");
+    const [selectedCFP, setSelectedCFP] = useState<string>("");
     const [showCopiedToast, setShowCopiedToast] = useState(false);
     const [showAddress, setShowAddress] = useState<{ [key: string]: boolean }>({});
 
@@ -81,6 +85,18 @@ function CreatorsTable() {
         }));
     };
 
+    const handleOpenUploadModal = (callId: string, cfp: string) => {
+        setSelectedCallId(callId);
+        setSelectedCFP(cfp);
+        setCreatorModalVisible(false); // Hide CreatorProposalsModal
+        setUploadModalVisible(true); // Show UploadProposalModal
+    };
+
+    const handleCloseUploadModal = () => {
+        setUploadModalVisible(false); // Hide UploadProposalModal
+        setCreatorModalVisible(true); // Show CreatorProposalsModal
+    };
+
     return (
         <div className="d-flex justify-content-center align-items-top" style={{ height: '100vh', paddingTop: '20px' }}>
             <Table striped bordered hover responsive>
@@ -123,6 +139,15 @@ function CreatorsTable() {
                     creator={selectedCreator}
                     modalVisible={creatorModalVisible}
                     setModalVisible={setCreatorModalVisible}
+                    onOpenUploadProposal={handleOpenUploadModal} // Pass function to open UploadProposalModal
+                />
+            )}
+            {uploadModalVisible && (
+                <UploadProposalModal
+                    selectedCallId={selectedCallId}
+                    selectedCFP={selectedCFP}
+                    modalVisible={uploadModalVisible}
+                    setModalVisible={handleCloseUploadModal} // Close UploadProposalModal and show CreatorProposalsModal
                 />
             )}
             <ToastContainer position="top-end" className="p-3">

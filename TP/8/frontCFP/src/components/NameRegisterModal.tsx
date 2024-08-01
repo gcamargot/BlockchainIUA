@@ -71,7 +71,7 @@ function NameRegisterModal({ show, onHide, signer }: NameRegisterModalProps) {
         signer
       );
   
-      const nameWithDomain = `${name}.users.cfp`;
+      const nameWithDomain = `${name}.users.eth`;
       console.log("Name with domain: ", nameWithDomain);
       const userAccount = await signer.getAddress();
       console.log("User account: ", userAccount);

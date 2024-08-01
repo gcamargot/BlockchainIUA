@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Container, Nav, Navbar } from 'react-bootstrap';
+import { Container, Nav, Navbar, Tooltip, OverlayTrigger } from 'react-bootstrap';
 import metamaskLogo from '../assets/metamask-logo.png';
 import NameRegisterModal from './NameRegisterModal';
 import { useMetaMask } from './MetamaskConnect';
 import { ethers } from 'ethers';
 import config from '../config';
+import { Toast, ToastContainer } from 'react-bootstrap';
 
 interface NavbarProps {
   setSelectedTab: (tab: number) => void;
@@ -16,6 +17,7 @@ function NavbarMenu({ setSelectedTab, factoryOwner }: NavbarProps) {
   const [nameRegisterModalVisible, setNameRegisterModalVisible] = useState(false);
   const [resolvedName, setResolvedName] = useState<string | null>(null);
   const [showAddress, setShowAddress] = useState(false);
+  const [showCopiedToast, setShowCopiedToast] = useState(false); // State for toast
 
   useEffect(() => {
     if (userAccount) {
@@ -68,6 +70,21 @@ function NavbarMenu({ setSelectedTab, factoryOwner }: NavbarProps) {
     setShowAddress(prevState => !prevState);
   };
 
+  const handleCopyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setShowCopiedToast(true);
+      setTimeout(() => setShowCopiedToast(false), 2000); // Hide after 2 seconds
+    }).catch((error) => {
+      console.error('Failed to copy address:', error);
+    });
+  };
+
+  const renderTooltip = (props: any, address: string) => (
+    <Tooltip id="button-tooltip" {...props}>
+      {address}
+    </Tooltip>
+  );
+
   return (
     <>
       <Navbar bg="dark" data-bs-theme="dark">
@@ -81,9 +98,17 @@ function NavbarMenu({ setSelectedTab, factoryOwner }: NavbarProps) {
           </Nav>
           <Nav className="ml-auto" style={{ display: 'flex', alignItems: 'center' }}>
             {userAccount && (
-              <span style={{ color: 'white', marginRight: '10px' }}>
-                {showAddress ? userAccount : resolvedName && resolvedName + ".users.eth" || userAccount}
-              </span>
+              <OverlayTrigger
+                placement="bottom"
+                overlay={renderTooltip({}, userAccount)}
+              >
+                <span 
+                  style={{ color: 'white', marginRight: '10px', cursor: 'pointer', textDecoration: 'underline' }}
+                  onClick={() => handleCopyToClipboard(userAccount)}
+                >
+                  {showAddress ? userAccount : resolvedName && resolvedName + ".users.eth" || userAccount}
+                </span>
+              </OverlayTrigger>
             )}
             {userAccount ? (
               <>
@@ -116,6 +141,12 @@ function NavbarMenu({ setSelectedTab, factoryOwner }: NavbarProps) {
       </Navbar>
 
       <NameRegisterModal show={nameRegisterModalVisible} onHide={handleCloseModal} signer={signer} />
+
+      <ToastContainer position="top-end" className="p-3">
+        <Toast show={showCopiedToast} onClose={() => setShowCopiedToast(false)} delay={2000} autohide>
+          <Toast.Body>Address copied to clipboard!</Toast.Body>
+        </Toast>
+      </ToastContainer>
     </>
   );
 }
