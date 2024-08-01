@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Table from 'react-bootstrap/Table';
 import Button from 'react-bootstrap/Button';
 import Tooltip from 'react-bootstrap/Tooltip';
@@ -64,7 +64,10 @@ function CallsTable() {
 
         for (let i = labels.length - 1; i >= 0; i--) {
             const labelSha3 = Web3.utils.sha3(labels[i]);
-            node = Web3.utils.sha3(node + labelSha3.slice(2), { encoding: "hex" });
+            if (labelSha3) {
+              const concatenatedString = node + labelSha3.slice(2);
+              node = Web3.utils.sha3(concatenatedString) as string;
+            }
         }
     }
 

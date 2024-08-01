@@ -59,9 +59,12 @@ function CallCreationModal({ show, onHide, onCreate }: CallCreationModalProps) {
         const labels = domain.split(".");
 
         for (let i = labels.length - 1; i >= 0; i--) {
-            const labelSha3 = Web3.utils.sha3(labels[i]);
-            node = Web3.utils.sha3(node + labelSha3.slice(2), { encoding: "hex" });
-        }
+          const labelSha3 = Web3.utils.sha3(labels[i]);
+          if (labelSha3) {
+            const concatenatedString = node + labelSha3.slice(2);
+            node = Web3.utils.sha3(concatenatedString) as string;
+          }
+      }
     }
 
     return node;
@@ -179,7 +182,7 @@ const isUserRegistered = async (name: string, ensRegistryContract: any ) => {
       await registerTx.wait();
       console.log("Register receipt: ", registerTx);
     
-      const setAddrTx = await publicResolverContract.setAddr(nameHash(name + ".calls.eth"), cfp[1]);
+      const setAddrTx = await publicResolverContract.setAddr(nameHash(name + ".calls.eth"), cfp.cfp)
       await setAddrTx.wait();
       console.log("Set Addr receipt: ", setAddrTx);
 
