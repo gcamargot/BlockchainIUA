@@ -26,10 +26,13 @@ digraph Transfers {
 "8ffD013B" -> "fD52f36a" [label="1000 ether (1195644)"]
 }
 """
+import argparse
+from web3 import Web3, IPCProvider
+from web3.middleware import geth_poa_middleware
+from web3.exceptions import BlockNotFound
 
 def address(x):
-    """Verifica si su argumento tiene forma de dirección ethereum válida"""
-    
+    """Verifica si su argumento tiene forma de direccion ethereum valida"""
     if x[:2] == '0x' or x[:2] == '0X':
         try:
             b = bytes.fromhex(x[2:])
@@ -37,20 +40,47 @@ def address(x):
                 return x
         except ValueError:
             pass
-    raise argparse.ArgumentTypeError(f"Invalid address: '{x}'")                                                                                                                                               
+    raise argparse.ArgumentTypeError(f"Invalid address: '{x}'")
 
-
+def format_address(address, short):
+    """Formatea una direccion ethereum"""
+    if short:
+        return address[:10] + "..."
+    else:
+        return address
 
 if __name__ == '__main__':
-    import argparse
     DEFAULT_WEB3_URI = "~/blockchain-iua/devnet/node/geth.ipc"
     parser = argparse.ArgumentParser()
     parser.add_argument("addresses", metavar="ADDRESS", type=address, nargs='*', help="Direcciones a buscar")
-    parser.add_argument("--add",help="Agrega las direcciones encontradas a la búsqueda", action="store_true", default=False)
+    parser.add_argument("--add",help="Agrega las direcciones encontradas a la busqueda", action="store_true", default=False)
     parser.add_argument("--first-block", "-f", help="Primer bloque del rango en el cual buscar", type=int, default=0)
-    parser.add_argument("--last-block", "-l", help="Último bloque del rango en el cual buscar", type=int, default="latest")
+    parser.add_argument("--last-block", "-l", help="Ultimo bloque del rango en el cual buscar", type=int, default="latest")
     parser.add_argument("--format", help="Formato de salida", choices=["plain","graphviz"], default="plain")
     parser.add_argument("--short", help="Trunca las direcciones a los 8 primeros caracteres", action="store_true")
-    parser.add_argument("--uri", help=f"URI para la conexión con geth",default=DEFAULT_WEB3_URI)
+    parser.add_argument("--uri", help=f"URI para la conexion con geth",default=DEFAULT_WEB3_URI)
     args = parser.parse_args()
-    print("No implementado")
+
+    w3 = Web3(IPCProvider(args.uri))
+    w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+    addresses = set(args.addresses)
+    
+    try:
+        # Itero desde el primer bloque hasta (el ultimo bloque provisto por args (last_block) o el ultimo bloque existente)
+        for block_number in range(args.first_block, w3.eth.block_number + 1 if args.last_block == "latest" else (args.last_block + 1 if args.last_block < w3.eth.block_number else w3.eth.block_number + 1)):
+            block = w3.eth.get_block(block_number, full_transactions=True)
+            for transaction in block.transactions:
+                # Convierto el transaction['to'] a minusculas para que coincida con las direcciones en addresses
+                if transaction['to'].lower() in addresses or transaction['from'].lower() in addresses or args.add:
+                    if args.format == "plain":
+                        print(f"{format_address(transaction['from'], args.short)} -> {format_address(transaction['to'], args.short)}: {w3.from_wei(transaction['value'], 'ether')} ether (bloque {block_number})")
+                    elif args.format == "graphviz":
+                        print(f'"{format_address(transaction["from"], args.short)}" -> "{format_address(transaction["to"], args.short)}" [label="{w3.from_wei(transaction["value"], "ether")} ether (bloque {block_number})"]')
+                    if args.add:
+                        addresses.add(transaction['from'])
+                        addresses.add(transaction['to'])
+    except BlockNotFound as e:
+        print(f"Block not found: {e}")
+    except Exception as e:
+        print(f"There was an error: {e}")
